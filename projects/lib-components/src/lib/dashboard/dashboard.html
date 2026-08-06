@@ -1,0 +1,46 @@
+<div class="container-fluid">
+  <div class="row g-4">
+    @for (card of cards; track $index) {
+      <div class="col-xl-3 col-lg-4 col-md-6 col-sm-12">
+        <a (click)="onClick(card.href)" class="text-decoration-none">
+          <div class="card stats-card h-100">
+            <!-- icon -->
+            <div class="stats-top">
+              <div
+                class="stats-icon"
+                [style.background]="
+                  card.iconBg || 'linear-gradient(135deg,#3b82f6,#2563eb)'
+                "
+                [style.color]="card.iconColor || 'white'"
+              >
+                <mat-icon class="stats-icon-size">{{
+                  ICONS[card.icon]
+                }}</mat-icon>
+              </div>
+              <div class="stats-text">
+                <div class="stats-title">{{ card.title }}</div>
+                @if (card.subtitle) {
+                  <div class="stats-sub">{{ card.subtitle }}</div>
+                }
+              </div>
+            </div>
+          </div>
+
+          <div class="stats-bottom">
+            <div class="stats-value">{{ card.value }}</div>
+
+            @if (card.trend) {
+              <div
+                class="stats-trend"
+                [class.up]="card.trendUp"
+                [class.down]="card.trendUp === false"
+              >
+                {{ card.trend }}
+              </div>
+            }
+          </div>
+        </a>
+      </div>
+    }
+  </div>
+</div>

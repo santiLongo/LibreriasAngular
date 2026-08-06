@@ -1,0 +1,39 @@
+<mat-form-field appearance="fill" style="width: 100%">
+  <mat-label>{{ label }}</mat-label>
+
+  <input
+    matInput
+    [matDatepicker]="picker"
+    [value]="value"
+    [disabled]="disabled"
+    [readonly]="true"
+    [formControl]="control"
+    (dateChange)="onDateChange($event.value)"
+    (blur)="onTouched()"
+  />
+
+  <mat-datepicker-toggle
+    matIconSuffix
+    [for]="picker"
+    [disabled]="readonly"
+  ></mat-datepicker-toggle>
+  <mat-datepicker [disabled]="readonly" #picker></mat-datepicker>
+
+  @if (value && !readonly) {
+    <button
+      matSuffix
+      mat-icon-button
+      type="button"
+      aria-label="Clear"
+      (click)="clear()"
+      style="border-color: transparent; background-color: transparent"
+      tabindex="-1"
+    >
+      <mat-icon>close</mat-icon>
+    </button>
+  }
+
+  @if (showError) {
+    <mat-error>{{ errorMessage }}</mat-error>
+  }
+</mat-form-field>

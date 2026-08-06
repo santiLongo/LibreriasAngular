@@ -1,0 +1,31 @@
+.dialog-wrapper {
+  max-width: 95vw;
+  display: flex;
+  flex-direction: column;
+}
+
+.dialog-body {
+  max-height: 65vh;
+  overflow: auto;
+  padding-top: 8px;
+}
+
+.dialog-footer {
+  display: flex;
+  width: 100%;
+  padding-top: 12px;
+
+  .left {
+    margin-right: auto;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .right {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+}

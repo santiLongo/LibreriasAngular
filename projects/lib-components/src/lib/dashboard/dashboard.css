@@ -1,0 +1,90 @@
+/* CARD BASE */
+.stats-card {
+  border: none;
+  border-radius: 18px;
+  background: #ffffff;
+  transition: all 0.25s ease;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.06);
+  backdrop-filter: blur(6px);
+}
+
+.stats-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 14px 32px rgba(0,0,0,0.12);
+}
+
+/* HEADER */
+
+.stats-top {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+}
+
+/* ICON */
+.stats-icon {
+  width: 120px;
+  height: 80px;
+  border-top-left-radius: 14px;
+  border-bottom-right-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.stats-text {
+  display: flex;
+  flex-direction: column;
+}
+
+mat-icon {
+  font-size: 48px;
+  width: 48px;
+  height: 48px;
+  line-height: 48px;
+}
+
+.stats-body{
+  padding: 18px;
+}
+
+/* BODY */
+.stats-title {
+  font-size: 14px;
+  color: #6b7280;
+  margin-bottom: 4px;
+}
+
+.stats-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  max-width: 20px;
+}
+
+/* VALUE */
+.stats-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: #111827;
+}
+
+/* TREND */
+.stats-trend {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.stats-trend.up {
+  color: #16a34a;
+}
+
+.stats-trend.down {
+  color: #dc2626;
+}
+
+/* optional subtitle */
+.stats-sub {
+  font-size: 13px;
+  color: #9ca3af;
+}

@@ -1,0 +1,316 @@
+<!-- TOOLBAR -->
+<div class="grid-toolbar">
+  <!-- IZQUIERDA -->
+  <div class="toolbar-left">
+    @if (editableService) {
+      <button
+        type="button"
+        class="btn btn-outline-secondary toolbar-icon-btn"
+        (click)="addRow()"
+      >
+        <mat-icon>add</mat-icon>
+      </button>
+    }
+
+    @for (action of leftButtons; track action.key) {
+      <app-button
+        [hidden]="action.hidden"
+        [disabled]="
+          (action.disabledOnEmptyRows && selectedRows.length === 0) ||
+          (action.disabled ? action.disabled(selectedRows) : false)
+        "
+        [icon]="action.icon"
+        (onClick)="action.onClick(selectedRows)"
+        [label]="action.label"
+        [type]="action.type"
+      />
+    }
+  </div>
+
+  <!-- DERECHA -->
+  <div class="toolbar-right">
+    @for (action of rightButtons; track action.key) {
+      <app-button
+        [hidden]="action.hidden"
+        [disabled]="
+          (action.disabledOnEmptyRows && selectedRows.length === 0) ||
+          (action.disabled ? action.disabled(selectedRows) : false)
+        "
+        [icon]="action.icon"
+        (onClick)="action.onClick(selectedRows)"
+        [label]="action.label"
+        [type]="action.type"
+      />
+    }
+  </div>
+</div>
+
+<!-- TABLA -->
+<nz-table
+  [nzData]="data"
+  [nzLoading]="loading"
+  [nzFrontPagination]="false"
+  [nzTotal]="total"
+  [(nzPageSize)]="dataService.state.pageSize"
+  [(nzPageIndex)]="dataService.state.page"
+  [nzShowSizeChanger]="true"
+  [nzPageSizeOptions]="[10, 20, 50]"
+  (nzPageSizeChange)="onPageSizeChange()"
+  (nzPageIndexChange)="onPageSizeChange()"
+  style="width: 100%; overflow-y: auto; margin-bottom: 20px"
+>
+  <thead>
+    <tr>
+      @if (selectableSettings?.selectable) {
+        @if (selectableSettings?.type === "multiple") {
+          <th
+            nzShowCheckbox
+            [nzChecked]="checked"
+            [nzIndeterminate]="indeterminate"
+            (nzCheckedChange)="onAllChecked($event)"
+          ></th>
+        } @else {
+          <th></th>
+        }
+      }
+
+      @if (editableService) {
+        <th>Edición</th>
+      }
+
+      @if (menuActions.length > 0) {
+        <th style="font-size: 14px">Acciones</th>
+      }
+      @for (column of columns; track column.key) {
+        @if (column.filter) {
+          @if (column.sortable) {
+            <th
+              nzCustomFilter
+              style="font-size: 14px"
+              [hidden]="column.hidden"
+              [nzSortFn]="true"
+              [nzSortOrder]="getSortOrder(column.key)"
+              (nzSortOrderChange)="onSort(column.key, $event)"
+            >
+              {{ column.title }}
+              <nz-filter-trigger
+                [(nzVisible)]="filterVisible[column.key.toString()]"
+                [nzActive]="hasFilter(column.key)"
+                [nzDropdownMenu]="filterMenu"
+                (nzVisibleChange)="onFilterVisibleChange($event, column)"
+              >
+                <nz-icon nzType="search" />
+              </nz-filter-trigger>
+            </th>
+          } @else {
+            <th nzCustomFilter style="font-size: 14px" [hidden]="column.hidden">
+              {{ column.title }}
+              <nz-filter-trigger
+                [(nzVisible)]="filterVisible[column.key.toString()]"
+                [nzActive]="hasFilter(column.key)"
+                [nzDropdownMenu]="filterMenu"
+                (nzVisibleChange)="onFilterVisibleChange($event, column)"
+              >
+                <nz-icon nzType="search" />
+              </nz-filter-trigger>
+            </th>
+          }
+        } @else {
+          @if (column.sortable) {
+            <th
+              style="font-size: 14px"
+              [hidden]="column.hidden"
+              [nzSortFn]="true"
+              [nzSortOrder]="getSortOrder(column.key)"
+              (nzSortOrderChange)="onSort(column.key, $event)"
+            >
+              {{ column.title }}
+            </th>
+          } @else {
+            <th style="font-size: 14px" [hidden]="column.hidden">
+              {{ column.title }}
+            </th>
+          }
+        }
+      }
+    </tr>
+  </thead>
+
+  <tbody>
+    @for (row of data; track trackRow($index, row)) {
+      <tr>
+        <!-- CheckBox para seleccionar rows -->
+        @if (selectableSettings?.selectable) {
+          <td
+            nzShowCheckbox
+            [nzChecked]="isChecked(row)"
+            [nzDisabled]="!isRowSelectable(row)"
+            (nzCheckedChange)="onRowChecked(row, $event)"
+          ></td>
+        }
+
+        <!-- EditableService -->
+        @if (editableService) {
+          <td [width]="50">
+            @if (!editCache[editableService.getRowKey(row)].edit) {
+              <div style="display: flex; justify-content: space-between">
+                <button
+                  type="button"
+                  class="btn btn-link"
+                  (click)="startEdit(row)"
+                >
+                  Editar
+                </button>
+                <button
+                  type="button"
+                  class="btn btn-link"
+                  (click)="removeEdit(row)"
+                >
+                  Remover
+                </button>
+              </div>
+            } @else {
+              <div style="display: flex; justify-content: space-between">
+                <button
+                  type="button"
+                  class="btn btn-link"
+                  (click)="saveEdit(row)"
+                >
+                  Guardar
+                </button>
+                <button
+                  type="button"
+                  class="btn btn-link"
+                  (click)="cancelEdit(row)"
+                >
+                  Cancelar
+                </button>
+              </div>
+            }
+          </td>
+        }
+
+        <!-- Menu de acciones para las filas -->
+        @if (menuActions.length > 0) {
+          <td>
+            <button
+              class="btn btn-light"
+              style="
+                display: flex;
+                border-radius: 100%;
+                background-color: transparent;
+              "
+              [matMenuTriggerFor]="menu"
+            >
+              <mat-icon>menu</mat-icon>
+            </button>
+
+            <mat-menu #menu="matMenu" style="width: auto">
+              @for (action of menuActions; track action.key) {
+                @if (!action.hidden || !action.hidden(row)) {
+                  <button mat-menu-item (click)="action.onClick(row)">
+                    @if (action.icon) {
+                      <mat-icon style="margin-right: 8px">{{
+                        ICONS[action.icon]
+                      }}</mat-icon>
+                    }
+                    {{ action.label }}
+                  </button>
+                }
+              }
+            </mat-menu>
+          </td>
+        }
+
+        <!-- Columnas normales -->
+        @for (column of columns; track column.key) {
+          <td style="font-size: 12px" [hidden]="column.hidden">
+            @if (
+              editableService &&
+              column.editable &&
+              editCache[editableService.getRowKey(row)].edit
+            ) {
+              @if (column.editTemplate) {
+                <ng-container
+                  *ngTemplateOutlet="
+                    column.editTemplate;
+                    context: {
+                      $implicit: editCache[editableService.getRowKey(row)].data,
+                    }
+                  "
+                />
+              } @else {
+                <app-form-field
+                  [label]="column.title"
+                  [(ngModel)]="
+                    editCache[editableService.getRowKey(row)].data[column.key]
+                  "
+                ></app-form-field>
+              }
+            } @else {
+              @if (column.type === 'template') {
+                <ng-container
+                  *ngTemplateOutlet="
+                    column.template;
+                    context: {
+                      $implicit: row,
+                      row: row,
+                    }
+                  "
+                />
+              } @else {
+                {{
+                  row[column.key] | dynamicFormat: column.type : column.format
+                }}
+              }
+            }
+          </td>
+        }
+      </tr>
+    }
+  </tbody>
+  <br />
+  @if (!hiddenRefresh) {
+    <div style="width: 100%">
+      <button
+        type="button"
+        class="btn btn-outline-secondary"
+        style="display: flex"
+        (click)="dataService.search()"
+      >
+        <mat-icon>refresh</mat-icon>
+      </button>
+    </div>
+  }
+</nz-table>
+
+<nz-dropdown-menu #filterMenu="nzDropdownMenu">
+  <div class="ant-table-filter-dropdown">
+    <div class="search-box">
+      <input
+        type="text"
+        nz-input
+        placeholder="Search name"
+        [formControl]="searchValue"
+      />
+      <button
+        nz-button
+        nzSize="small"
+        nzType="primary"
+        nzClickHide="false"
+        (click)="applyFilter(activeFilterColumn!)"
+        class="search-button"
+      >
+        Buscar
+      </button>
+      <button
+        nz-button
+        nzSize="small"
+        nzClickHide="false"
+        (click)="resetFilter(activeFilterColumn!)"
+      >
+        Limpiar
+      </button>
+    </div>
+  </div>
+</nz-dropdown-menu>

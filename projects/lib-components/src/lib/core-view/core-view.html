@@ -1,0 +1,12 @@
+<div class="core-card">
+  <div class="core-card-header">
+    @if (title) {
+      <h2>{{ title }}</h2>
+    }
+    <ng-content select="[header]"></ng-content>
+  </div>
+
+  <div class="core-card-body">
+    <ng-content select="[body]"></ng-content>
+  </div>
+</div>

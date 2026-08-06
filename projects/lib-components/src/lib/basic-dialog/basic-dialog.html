@@ -1,0 +1,27 @@
+<div
+  class="dialog-wrapper"
+  [ngStyle]="{width: resolvedWidth, height: height}"
+>
+  <!-- HEADER -->
+   @if (title) {
+    <h2 mat-dialog-title>
+        {{ title }}
+    </h2>
+   }
+  
+  <!-- BODY -->
+  <mat-dialog-content class="dialog-body">
+    <ng-content select="[body]"></ng-content>
+  </mat-dialog-content>
+
+  <!-- FOOTER -->
+  <mat-dialog-actions class="dialog-footer">
+    <div class="left">
+      <ng-content select="[leftFooter]"></ng-content>
+    </div>
+
+    <div class="right">
+      <ng-content select="[footer]"></ng-content>
+    </div>
+  </mat-dialog-actions>
+</div>

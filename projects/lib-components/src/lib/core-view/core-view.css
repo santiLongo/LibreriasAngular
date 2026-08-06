@@ -1,0 +1,29 @@
+.core-card {
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  padding: 0;
+  overflow: hidden;
+}
+
+.core-card-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid #eee;
+  background: #fafafa;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+
+  h2 {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: #333;
+  }
+}
+
+.core-card-body {
+  padding: 20px;
+  color: #444;
+  font-size: 0.95rem;
+}

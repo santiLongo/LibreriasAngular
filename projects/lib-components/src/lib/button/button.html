@@ -1,0 +1,12 @@
+<button
+  type="button"
+  [ngClass]="types[type]"
+  [disabled]="disabled"
+  [hidden]="hidden"
+  (click)="click()"
+>
+  @if (icon) {
+    <mat-icon>{{ ICONS[icon] }}</mat-icon>
+  }
+  {{ label }}
+</button>

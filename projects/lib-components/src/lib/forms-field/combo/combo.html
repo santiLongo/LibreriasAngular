@@ -1,0 +1,56 @@
+<mat-form-field #mat appearance="fill" style="width: 100%" (click)="handleClick()">
+  <mat-label>{{ label }}</mat-label>
+
+  <!-- <mat-select
+    [value]="value"
+    [disabled]="disabled"
+    [compareWith]="compareByNumero"
+    (selectionChange)="onSelectionChange($event.value)"
+    (openedChange)="readonly && $event ? $event = false : null"
+  >
+    @for (item of data$ | async; track item.numero) {
+      <mat-option [value]="item.numero">
+        {{ item.descripcion }}
+      </mat-option>
+    }
+  </mat-select> -->
+
+  @if (!readonly) {
+    <mat-select
+      [value]="value"
+      [disabled]="disabled"
+      [compareWith]="compareByNumero"
+      [formControl]="control"
+      (selectionChange)="onSelectionChange($event.value)"
+      (click)="handleClick()"
+    >
+      @for (item of data$ | async; track item.numero) {
+        <mat-option [value]="item.numero">
+          {{ item.descripcion }}
+        </mat-option>
+      }
+    </mat-select>
+  } @else {
+    @let items = data$ | async;
+
+    <input matInput [value]="getDescripcion(items)" readonly />
+  }
+
+  @if (value && !readonly) {
+    <button
+      matSuffix
+      mat-icon-button
+      type="button"
+      aria-label="Clear"
+      (click)="clear()"
+      style="border-color: transparent; background-color: transparent"
+      tabindex="-1"
+    >
+      <mat-icon>close</mat-icon>
+    </button>
+  }
+
+  @if (showError) {
+    <mat-error>{{ errorMessage }}</mat-error>
+  }
+</mat-form-field>

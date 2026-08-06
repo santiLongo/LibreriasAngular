@@ -1,0 +1,29 @@
+<nz-upload
+  [nzMultiple]="multiple"
+  [nzAccept]="accept"
+  [nzListType]="listType"
+  [nzDisabled]="disabled"
+  [nzFileList]="fileList"
+  [nzCustomRequest]="customRequest"
+  [nzBeforeUpload]="beforeUpload"
+  [nzRemove]="onRemove"
+  [nzDownload]="onDownload"
+  [nzShowUploadList]="{
+    showRemoveIcon: true,
+    showDownloadIcon: showDownload,
+    showPreviewIcon: false,
+  }"
+  (nzChange)="onChange($event)"
+>
+  @if (listType === 'picture-card') {
+    <div>
+      <nz-icon nzType="plus"></nz-icon>
+      <div class="ant-upload-text">{{ buttonText }}</div>
+    </div>
+  } @else {
+    <button nz-button type="button" [disabled]="disabled">
+      <nz-icon nzType="upload"></nz-icon>
+      {{ buttonText }}
+    </button>
+  }
+</nz-upload>

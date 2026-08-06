@@ -6,6 +6,10 @@
     "strict": true,
     "noImplicitOverride": true,
     "noPropertyAccessFromIndexSignature": true,
+    "paths": {
+      "lib-components": ["./dist/lib-components"],
+      "lib-servicios": ["./dist/lib-servicios"]
+    },
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
     "skipLibCheck": true,
@@ -13,7 +17,8 @@
     "experimentalDecorators": true,
     "importHelpers": true,
     "target": "ES2022",
-    "module": "preserve"
+    "module": "preserve",
+    "strictPropertyInitialization": false 
   },
   "angularCompilerOptions": {
     "enableI18nLegacyMessageIdFormat": false,
@@ -28,6 +33,24 @@
     },
     {
       "path": "./tsconfig.spec.json"
+    },
+    {
+      "path": "./projects/lib-components/tsconfig.lib.json"
+    },
+    {
+      "path": "./projects/lib-components/tsconfig.spec.json"
+    },
+    {
+      "path": "./projects/lib-generales/tsconfig.lib.json"
+    },
+    {
+      "path": "./projects/lib-generales/tsconfig.spec.json"
+    },
+    {
+      "path": "./projects/lib-servicios/tsconfig.lib.json"
+    },
+    {
+      "path": "./projects/lib-servicios/tsconfig.spec.json"
     }
   ]
 }

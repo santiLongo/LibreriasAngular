@@ -24,9 +24,7 @@
                 "input": "public"
               }
             ],
-            "styles": [
-              "src/styles.css"
-            ]
+            "styles": ["src/styles.css"]
           },
           "configurations": {
             "production": {
@@ -66,6 +64,58 @@
         },
         "test": {
           "builder": "@angular/build:unit-test"
+        }
+      }
+    },
+    "lib-components": {
+      "projectType": "library",
+      "root": "projects/lib-components",
+      "sourceRoot": "projects/lib-components/src",
+      "prefix": "lib",
+      "architect": {
+        "build": {
+          "builder": "@angular/build:ng-packagr",
+          "configurations": {
+            "production": {
+              "tsConfig": "projects/lib-components/tsconfig.lib.prod.json"
+            },
+            "development": {
+              "tsConfig": "projects/lib-components/tsconfig.lib.json"
+            }
+          },
+          "defaultConfiguration": "production"
+        },
+        "test": {
+          "builder": "@angular/build:unit-test",
+          "options": {
+            "tsConfig": "projects/lib-components/tsconfig.spec.json"
+          }
+        }
+      }
+    },
+    "lib-servicios": {
+      "projectType": "library",
+      "root": "projects/lib-servicios",
+      "sourceRoot": "projects/lib-servicios/src",
+      "prefix": "lib",
+      "architect": {
+        "build": {
+          "builder": "@angular/build:ng-packagr",
+          "configurations": {
+            "production": {
+              "tsConfig": "projects/lib-servicios/tsconfig.lib.prod.json"
+            },
+            "development": {
+              "tsConfig": "projects/lib-servicios/tsconfig.lib.json"
+            }
+          },
+          "defaultConfiguration": "production"
+        },
+        "test": {
+          "builder": "@angular/build:unit-test",
+          "options": {
+            "tsConfig": "projects/lib-servicios/tsconfig.spec.json"
+          }
         }
       }
     }

@@ -1,0 +1,68 @@
+<!-- <div class="container-fluid">
+  <div class="row g-4">
+    @for (card of cards; track $index) {
+      <div class="col-xl-3 col-lg-4 col-md-6 col-sm-12">
+        <a [href]="card.href || '#'" class="text-decoration-none">
+          <div class="card stats-card h-160">
+
+            <div class="stats-top">
+              <div
+                class="stats-icon"
+                [style.background]="
+                  card.iconBg || 'linear-gradient(135deg,#3b82f6,#2563eb)'
+                "
+                [style.color]="card.iconColor || 'white'"
+              >
+                <mat-icon class="stats-icon-size">{{
+                  ICONS[card.icon]
+                }}</mat-icon>
+              </div>
+            </div>
+
+            <div class="stats-bottom">
+              <div class="stats-title">{{ card.title }}</div>
+              <br />
+              <div class="stats-title">{{ card.subtitle }}</div>
+            </div>
+          </div>
+        </a>
+      </div>
+    }
+  </div>
+</div> -->
+
+
+<div class="container-fluid">
+  <div class="row g-4">
+    @for (card of cards; track $index) {
+      <div class="col-xl-3 col-lg-4 col-md-6 col-sm-12">
+        <a (click)="onClick(card.href)" class="text-decoration-none dashboard-link">
+          <div class="card stats-card h-100">
+
+            <!-- ICON HEADER -->
+            <div
+              class="stats-icon"
+              [style.background]="card.iconBg || 'linear-gradient(135deg,#3b82f6,#2563eb)'"
+              [style.color]="card.iconColor || 'white'"
+            >
+              <mat-icon class="stats-icon-size">
+                {{ ICONS[card.icon] }}
+              </mat-icon>
+            </div>
+
+            <!-- BODY -->
+            <div class="stats-body">
+              <div class="stats-title">{{ card.title }}</div>
+
+              <div class="stats-row">
+                <div class="stats-title">{{ card.subtitle }}</div>
+                <mat-icon class="arrow">arrow_forward</mat-icon>
+              </div>
+            </div>
+
+          </div>
+        </a>
+      </div>
+    }
+  </div>
+</div>

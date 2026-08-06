@@ -1,0 +1,141 @@
+/* CARD BASE
+.stats-card {
+  border: none;
+  border-radius: 18px;
+  background: #ffffff;
+  transition: all 0.25s ease;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.06);
+  backdrop-filter: blur(6px);
+}
+
+.stats-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 14px 32px rgba(0,0,0,0.12);
+}
+
+
+.stats-top {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+}
+
+.stats-icon {
+  width: 100%;
+  height: 140px;
+  border-top-left-radius: 14px;
+  border-top-right-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.stats-text {
+  display: flex;
+  flex-direction: column;
+}
+
+mat-icon {
+  font-size: 48px;
+  width: 48px;
+  height: 48px;
+  line-height: 48px;
+}
+
+.stats-body{
+  padding: 18px;
+}
+
+.stats-title {
+  font-size: 24px;
+  color: #6b7280;
+  margin-bottom: 4px;
+}
+
+.stats-bottom {
+  max-height: 120px;
+  padding: 18px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  max-width: 20px;
+}
+
+
+.stats-sub {
+  font-size: 13px;
+  color: #9ca3af;
+} */
+
+
+.stats-card {
+  border: none;
+  border-radius: 18px;
+  background: #ffffff;
+  transition: all 0.25s ease;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.06);
+  overflow: hidden;
+  min-height: 260px; /* 👈 más alto */
+}
+
+.stats-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 14px 32px rgba(0,0,0,0.12);
+}
+
+.stats-icon {
+  width: 100%;
+  height: 180px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+mat-icon {
+  font-size: 48px;
+  width: 48px;
+  height: 48px;
+}
+
+.stats-body {
+  flex: 1;
+  padding-left: 15px;
+  padding-top: 15px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.stats-title {
+  align-self: flex-start;
+  font-size: 20px;
+  font-weight: 300;
+  color: #292828;
+  margin-bottom: 10px;
+}
+
+.stats-row {
+  display: flex;
+  justify-content: space-between;
+}
+
+.stats-subtitle {
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.arrow {
+  align-self: flex-end;
+  font-size: 20px;
+  color: #9ca3af;
+  transition: transform 0.2s ease;
+}
+
+.dashboard-link:hover .arrow {
+  transform: translateX(4px);
+}
+
+.dashboard-link {
+  display: block;
+  height: 100%;
+}
