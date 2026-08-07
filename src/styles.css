@@ -1,1 +1,37 @@
 /* You can add global styles to this file, and also import other style files */
+/* You can add global styles to this file, and also import other style files */
+
+@import 'ng-zorro-antd/ng-zorro-antd.min.css';
+
+@import './custom-theme.scss';
+
+html, body { height: 100%; overflow: hidden; }
+body { margin: 0; font-family: Roboto, "Helvetica Neue", sans-serif; }
+
+.cdk-overlay-dark-backdrop {
+  background: rgba(0, 0, 0, 0.32);
+}
+
+app-root {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+input[type="number"]::-webkit-inner-spin-button{
+  display: none;
+}
+
+input[type="number"]{
+  -moz-appearance: textfield;;
+}
+
+
+:root {
+    --color-uno: #44749d ;
+    --color-dos: #c6d4e1 ;
+    --color-tres: #ffffff ;
+    --color-cuatro: #ebe7e0;
+    --color-cinco: #bdb8ad; 
+    --color-texto: #000000;
+}

@@ -1,5 +1,5 @@
-export * from './combo/combo';
-export * from './date-picker/date-form-field';
+export * from './combo';
+export * from './date-picker';
 export * from './decimal-form/decimal-form-field';
 export * from './form-field/form-field';
 export * from './number-form/number-form-field';
