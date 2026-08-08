@@ -14,7 +14,7 @@ import { HttpRef } from 'lib-servicios';
   imports: [NgClass, MatIcon],
 })
 export class ButtonComponent implements OnInit {
-  @Input() ref: HttpRef = { loading: true };
+  @Input() ref: HttpRef = { loading: false };
   @Input() key: string;
   @Input() label: string;
   @Input() icon?: IconKey;
