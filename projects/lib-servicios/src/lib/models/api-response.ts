@@ -6,3 +6,7 @@ export interface ApiResponse<T> {
   errores: string[];
   isSessionAlive: boolean;
 }
+
+export interface HttpRef {
+  loading: boolean
+}

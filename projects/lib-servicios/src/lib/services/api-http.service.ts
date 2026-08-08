@@ -1,8 +1,9 @@
 import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { finalize, Observable } from 'rxjs';
+import { finalize, Observable, of, switchMap } from 'rxjs';
 import { LoadingService } from './loading.service';
 import { GridState, PagedResult } from '../models/models';
+import { HttpRef } from '../models';
 
 @Injectable({
   providedIn: 'root',
@@ -21,7 +22,7 @@ export class ApiHttpService {
     });
   }
 
-  get<T>(url: string, params?: any): Observable<T> {
+  get<T>(url: string, params?: any, ref?: HttpRef): Observable<T> {
     return this.http.get<T>(url, {
       headers: this.getHeaders(),
       params: this.buildParams(params),
@@ -32,7 +33,10 @@ export class ApiHttpService {
     url: string,
     params: any,
     state: GridState,
+    ref?: HttpRef,
   ): Observable<PagedResult<T>> {
+    this.setLoading(ref, true);
+
     let finalParams: any = {
       ...params,
       page: state.page,
@@ -54,14 +58,36 @@ export class ApiHttpService {
 
     const httpParams = this.buildParams(finalParams);
 
-    return this.http.get<PagedResult<T>>(url, {
-      headers: this.getHeaders(),
-      params: httpParams,
-    });
+    return this.http
+      .get<PagedResult<T>>(url, {
+        headers: this.getHeaders(),
+        params: httpParams,
+      })
+      .pipe(finalize(() => this.setLoading(ref, false)));
   }
 
-  getBlob(url: string, params?: any, message?: string): Observable<Blob> {
-    this.loadingService.show(message);
+  downloadGet(url: string, fileName: string, params?: any, ref?: HttpRef): void {
+    this.setLoading(ref, true);
+
+    this.http
+      .get(url, {
+        headers: this.getHeaders(),
+        params: this.buildParams(params),
+        responseType: 'blob',
+      })
+      .pipe(finalize(() => this.setLoading(ref, false)))
+      .subscribe((blob) => {
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = fileName;
+        link.click();
+        window.URL.revokeObjectURL(url);
+      });
+  }
+
+  downloadGet$(url: string, fileName: string, params?: any, ref?: HttpRef): Observable<void> {
+    this.setLoading(ref, true);
 
     return this.http
       .get(url, {
@@ -69,7 +95,18 @@ export class ApiHttpService {
         params: this.buildParams(params),
         responseType: 'blob',
       })
-      .pipe(finalize(() => this.loadingService.hide()));
+      .pipe(
+        finalize(() => this.setLoading(ref, false)),
+        switchMap((blob) => {
+          const url = window.URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = fileName;
+          link.click();
+          window.URL.revokeObjectURL(url);
+          return of();
+        }),
+      );
   }
 
   getWithBlock<T>(url: string, params?: any, message?: string): Observable<T> {
@@ -83,19 +120,18 @@ export class ApiHttpService {
       .pipe(finalize(() => this.loadingService.hide()));
   }
 
-  post<T>(url: string, body: any, extraParams?: any): Observable<T> {
-    return this.http.post<T>(url, body, {
-      headers: this.getHeaders(),
-      params: this.buildParams(extraParams),
-    });
+  post<T>(url: string, body: any, ref?: HttpRef, extraParams?: any): Observable<T> {
+    this.setLoading(ref, true);
+
+    return this.http
+      .post<T>(url, body, {
+        headers: this.getHeaders(),
+        params: this.buildParams(extraParams),
+      })
+      .pipe(finalize(() => this.setLoading(ref, false)));
   }
 
-  postWithBlock<T>(
-    url: string,
-    body: any,
-    extraParams?: any,
-    message?: string,
-  ): Observable<T> {
+  postWithBlock<T>(url: string, body: any, extraParams?: any, message?: string): Observable<T> {
     this.loadingService.show(message);
 
     return this.http
@@ -114,6 +150,49 @@ export class ApiHttpService {
         headers: this.getHeaders(),
       })
       .pipe(finalize(() => this.loadingService.hide()));
+  }
+
+  download(url: string, fileName: string, body?: any, ref?: HttpRef): void {
+    this.setLoading(ref, true);
+
+    this.http
+      .post<Blob>(url, {
+        headers: this.getHeaders(),
+        params: this.buildParams(body),
+        ref,
+      })
+      .pipe(finalize(() => this.setLoading(ref, false)))
+      .subscribe((blob) => {
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = fileName;
+        link.click();
+        window.URL.revokeObjectURL(url);
+      });
+  }
+
+  download$(url: string, fileName: string, body?: any, ref?: HttpRef): Observable<void> {
+    this.setLoading(ref, true);
+
+    return this.http
+      .post<Blob>(url, {
+        headers: this.getHeaders(),
+        params: this.buildParams(body),
+        ref,
+      })
+      .pipe(
+        finalize(() => this.setLoading(ref, false)),
+        switchMap((blob) => {
+          const url = window.URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = fileName;
+          link.click();
+          window.URL.revokeObjectURL(url);
+          return of();
+        }),
+      );
   }
 
   private buildParams(params?: any): HttpParams {
@@ -148,5 +227,11 @@ export class ApiHttpService {
     });
 
     return httpParams;
+  }
+
+  private setLoading(ref: HttpRef | undefined, loading: boolean): void {
+    if (ref) {
+      ref.loading = loading;
+    }
   }
 }

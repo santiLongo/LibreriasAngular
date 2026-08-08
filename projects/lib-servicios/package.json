@@ -1,6 +1,6 @@
 {
   "name": "lib-servicios",
-  "version": "21.0.3",
+  "version": "21.0.4",
   "peerDependencies": {
     "@angular/cdk": "^21.2.0",
     "@angular/common": "^21.2.0",
