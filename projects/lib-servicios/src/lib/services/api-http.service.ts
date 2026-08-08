@@ -1,6 +1,6 @@
 import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { finalize, Observable, of, switchMap } from 'rxjs';
+import { finalize, map, Observable, of, switchMap, tap } from 'rxjs';
 import { LoadingService } from './loading.service';
 import { GridState, PagedResult } from '../models/models';
 import { HttpRef } from '../models';
@@ -77,12 +77,7 @@ export class ApiHttpService {
       })
       .pipe(finalize(() => this.setLoading(ref, false)))
       .subscribe((blob) => {
-        const url = window.URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = fileName;
-        link.click();
-        window.URL.revokeObjectURL(url);
+        this.downloadFile(blob, fileName)
       });
   }
 
@@ -96,16 +91,9 @@ export class ApiHttpService {
         responseType: 'blob',
       })
       .pipe(
+        tap(blob => this.downloadFile(blob, fileName)),
         finalize(() => this.setLoading(ref, false)),
-        switchMap((blob) => {
-          const url = window.URL.createObjectURL(blob);
-          const link = document.createElement('a');
-          link.href = url;
-          link.download = fileName;
-          link.click();
-          window.URL.revokeObjectURL(url);
-          return of();
-        }),
+        map(() => void 0)
       );
   }
 
@@ -163,12 +151,7 @@ export class ApiHttpService {
       })
       .pipe(finalize(() => this.setLoading(ref, false)))
       .subscribe((blob) => {
-        const url = window.URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = fileName;
-        link.click();
-        window.URL.revokeObjectURL(url);
+        this.downloadFile(blob, fileName)
       });
   }
 
@@ -182,16 +165,9 @@ export class ApiHttpService {
         ref,
       })
       .pipe(
+        tap(blob => this.downloadFile(blob, fileName)),
         finalize(() => this.setLoading(ref, false)),
-        switchMap((blob) => {
-          const url = window.URL.createObjectURL(blob);
-          const link = document.createElement('a');
-          link.href = url;
-          link.download = fileName;
-          link.click();
-          window.URL.revokeObjectURL(url);
-          return of();
-        }),
+        map(() => void 0)
       );
   }
 
@@ -233,5 +209,21 @@ export class ApiHttpService {
     if (ref) {
       ref.loading = loading;
     }
+  }
+
+  private downloadFile(blob: Blob, fileName: string) {
+    const objectUrl = URL.createObjectURL(blob);
+
+    const link = document.createElement('a');
+    link.href = objectUrl;
+    link.download = fileName;
+
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+
+    setTimeout(() => {
+      URL.revokeObjectURL(objectUrl);
+    }, 100);
   }
 }
