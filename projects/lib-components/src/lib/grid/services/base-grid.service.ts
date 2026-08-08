@@ -1,14 +1,14 @@
-import { GridState, PagedResult } from 'lib-servicios';
+import { GridState, HttpRef, PagedResult } from 'lib-servicios';
 import { BehaviorSubject, finalize, Observable } from 'rxjs';
 
 export abstract class BaseGridService<T> {
   private dataSub$ = new BehaviorSubject<T[]>([]);
   private totalSub$ = new BehaviorSubject<number>(0);
-  private loadingSub$ = new BehaviorSubject<boolean>(false);
+
+  public ref: HttpRef = { loading: false }
 
   data$ = this.dataSub$.asObservable();
   total$ = this.totalSub$.asObservable();
-  loading$ = this.loadingSub$.asObservable();
 
   state: GridState = {
     page: 1,
@@ -16,26 +16,20 @@ export abstract class BaseGridService<T> {
     filters: {}
   };
 
-  protected setLoading(value: boolean) {
-    this.loadingSub$.next(value);
-  }
-
   protected setData(data: T[], total: number) {
     this.dataSub$.next(data);
     this.totalSub$.next(total);
   }
 
   public search(): void {
-    this.setLoading(true);
     //
-    this.getData(this.state)
-      .pipe(finalize(() => this.setLoading(false)))
+    this.getData(this.state, this.ref)
       .subscribe((res) => {
         this.setData(res.items, res.total);
       });
   }
 
-  abstract getData(state: GridState): Observable<PagedResult<T>>;
+  abstract getData(state: GridState, ref?: HttpRef): Observable<PagedResult<T>>;
 
   public setSort(field: string, direction: 'asc' | 'desc' | null) {
     if (!direction) {

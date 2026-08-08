@@ -23,6 +23,7 @@
         (onClick)="action.onClick(selectedRows)"
         [label]="action.label"
         [type]="action.type"
+        [ref]="ref"
       />
     }
   </div>
@@ -40,6 +41,7 @@
         (onClick)="action.onClick(selectedRows)"
         [label]="action.label"
         [type]="action.type"
+        [ref]="ref"
       />
     }
   </div>
@@ -48,7 +50,7 @@
 <!-- TABLA -->
 <nz-table
   [nzData]="data"
-  [nzLoading]="loading"
+  [nzLoading]="ref.loading"
   [nzFrontPagination]="false"
   [nzTotal]="total"
   [(nzPageSize)]="dataService.state.pageSize"
@@ -277,6 +279,7 @@
         class="btn btn-outline-secondary"
         style="display: flex"
         (click)="dataService.search()"
+        [disabled]="ref.loading"
       >
         <mat-icon>refresh</mat-icon>
       </button>

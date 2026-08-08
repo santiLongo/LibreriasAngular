@@ -23,6 +23,7 @@ import { EditableGridService } from './services/editable-grid.service'
 import { CommonModule, NgTemplateOutlet } from '@angular/common';
 import { FormFieldComponent } from '../forms-field';
 import { ICONS } from '../types/icons';
+import { HttpRef } from 'lib-servicios';
 
 @Component({
   standalone: true,
@@ -54,6 +55,7 @@ export class GridComponent<T extends Record<string, any>>
   @Input({ required: true }) config!: GridConfig<T>;
   @Input() hiddenRefresh = false;
   @Input() isLocal = false;
+  @Input() ref: HttpRef
 
   data: T[] = [];
   columns: GridColumn<T>[] = [];
@@ -62,7 +64,6 @@ export class GridComponent<T extends Record<string, any>>
   selectableSettings?: SelectebleSettings<T>;
   checked = false;
   indeterminate = false;
-  loading = false;
   total = 10;
   ICONS = ICONS;
   activeFilterColumn?: string;
@@ -86,15 +87,15 @@ export class GridComponent<T extends Record<string, any>>
       this.editableService = this.dataService;
     }
 
+    if(!this.ref){
+      this.ref = this.dataService.ref;
+    }
+
     this.dataService.data$.pipe(takeUntil(this.destroy$)).subscribe((data) => {
       this.data = data;
       this.buildEditCache();
       this.resetSelectionStatus();
     });
-
-    this.dataService.loading$
-      .pipe(takeUntil(this.destroy$))
-      .subscribe((l) => (this.loading = l));
 
     this.dataService.total$
       .pipe(takeUntil(this.destroy$))
