@@ -1,0 +1,96 @@
+<h2 mat-dialog-title>
+  Resultado de la operación
+</h2>
+
+<mat-dialog-content>
+
+  <!-- OKS -->
+  @if (data.cantidadOks() > 0) {
+    <section class="novedad-section ok-section">
+
+      <div class="section-header">
+        <div class="icon-container">
+          <mat-icon>check</mat-icon>
+        </div>
+
+        <div>
+          <h3>Operación exitosa</h3>
+          <span>
+            {{ data.cantidadOks() }}
+            {{ data.cantidadOks() === 1 ? 'operación realizada' : 'operaciones realizadas' }}
+          </span>
+        </div>
+      </div>
+
+      <ul>
+        @for (ok of data.oks; track $index) {
+          <li>{{ ok }}</li>
+        }
+      </ul>
+
+    </section>
+  }
+
+
+  <!-- ADVERTENCIAS -->
+  @if (data.cantidadAdvertencias() > 0) {
+    <section class="novedad-section warning-section">
+
+      <div class="section-header">
+        <div class="icon-container">
+          <mat-icon>warning</mat-icon>
+        </div>
+
+        <div>
+          <h3>Advertencias</h3>
+          <span>
+            {{ data.cantidadAdvertencias() }}
+            {{ data.cantidadAdvertencias() === 1 ? 'advertencia' : 'advertencias' }}
+          </span>
+        </div>
+      </div>
+
+      <ul>
+        @for (advertencia of data.advertencias; track $index) {
+          <li>{{ advertencia }}</li>
+        }
+      </ul>
+
+    </section>
+  }
+
+
+  <!-- ERRORES -->
+  @if (data.cantidadErrores() > 0) {
+    <section class="novedad-section error-section">
+
+      <div class="section-header">
+        <div class="icon-container">
+          <mat-icon>close</mat-icon>
+        </div>
+
+        <div>
+          <h3>Errores</h3>
+          <span>
+            {{ data.cantidadErrores() }}
+            {{ data.cantidadErrores() === 1 ? 'error encontrado' : 'errores encontrados' }}
+          </span>
+        </div>
+      </div>
+
+      <ul>
+        @for (error of data.errores; track $index) {
+          <li>{{ error }}</li>
+        }
+      </ul>
+
+    </section>
+  }
+
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-flat-button (click)="cerrar()">
+    Cerrar
+  </button>
+</mat-dialog-actions>

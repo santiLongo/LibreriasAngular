@@ -1,0 +1,116 @@
+:host {
+  display: block;
+}
+
+mat-dialog-content {
+  min-width: 500px;
+  max-width: 700px;
+  padding-top: 8px;
+}
+
+.novedad-section {
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 14px;
+  border: 1px solid;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.icon-container {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  flex-shrink: 0;
+
+  mat-icon {
+    font-size: 22px;
+    width: 22px;
+    height: 22px;
+  }
+}
+
+h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+span {
+  font-size: 13px;
+  opacity: 0.75;
+}
+
+ul {
+  margin: 14px 0 0 50px;
+  padding: 0;
+}
+
+li {
+  margin-bottom: 7px;
+  line-height: 1.4;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+
+/* OK */
+
+.ok-section {
+  border-color: #b7dfc2;
+  background: #f1faf3;
+
+  .icon-container {
+    background: #d5f2dc;
+    color: #218838;
+  }
+
+  h3 {
+    color: #1e7e34;
+  }
+}
+
+
+/* ADVERTENCIAS */
+
+.warning-section {
+  border-color: #ffe08a;
+  background: #fffaf0;
+
+  .icon-container {
+    background: #fff0bd;
+    color: #b77900;
+  }
+
+  h3 {
+    color: #9a6700;
+  }
+}
+
+
+/* ERRORES */
+
+.error-section {
+  border-color: #f1b8b8;
+  background: #fff5f5;
+
+  .icon-container {
+    background: #f8d7da;
+    color: #c82333;
+  }
+
+  h3 {
+    color: #bd2130;
+  }
+}

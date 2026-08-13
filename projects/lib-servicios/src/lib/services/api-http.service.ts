@@ -3,7 +3,8 @@ import { Injectable } from '@angular/core';
 import { finalize, map, Observable, of, switchMap, tap } from 'rxjs';
 import { LoadingService } from './loading.service';
 import { GridState, PagedResult } from '../models/models';
-import { HttpRef } from '../models';
+import { ApiNovedadesResponse, ExtraParamsHttp, HttpRef } from '../models';
+import { NovedadesDialogService } from './novedades.service';
 
 @Injectable({
   providedIn: 'root',
@@ -12,6 +13,7 @@ export class ApiHttpService {
   constructor(
     private http: HttpClient,
     private loadingService: LoadingService,
+    private novedadesService: NovedadesDialogService,
   ) {}
 
   private getHeaders(): HttpHeaders {
@@ -77,7 +79,7 @@ export class ApiHttpService {
       })
       .pipe(finalize(() => this.setLoading(ref, false)))
       .subscribe((blob) => {
-        this.downloadFile(blob, fileName)
+        this.downloadFile(blob, fileName);
       });
   }
 
@@ -91,9 +93,9 @@ export class ApiHttpService {
         responseType: 'blob',
       })
       .pipe(
-        tap(blob => this.downloadFile(blob, fileName)),
+        tap((blob) => this.downloadFile(blob, fileName)),
         finalize(() => this.setLoading(ref, false)),
-        map(() => void 0)
+        map(() => void 0),
       );
   }
 
@@ -108,26 +110,44 @@ export class ApiHttpService {
       .pipe(finalize(() => this.loadingService.hide()));
   }
 
-  post<T>(url: string, body: any, ref?: HttpRef, extraParams?: any): Observable<T> {
+  post<T>(url: string, body: any, ref?: HttpRef, extraParams?: ExtraParamsHttp): Observable<T> {
     this.setLoading(ref, true);
 
-    return this.http
-      .post<T>(url, body, {
-        headers: this.getHeaders(),
-        params: this.buildParams(extraParams),
-      })
-      .pipe(finalize(() => this.setLoading(ref, false)));
+    const obs$ = extraParams?.useNovedades
+      ? this.http
+          .post<ApiNovedadesResponse<T>>(url, body, {
+            headers: this.getHeaders(),
+            params: this.buildParams(extraParams?.queryParams),
+          })
+          .pipe(
+            map(res => ApiHttpService.from(res)),
+            switchMap((res) => {
+              if (!res.tengoNovedades()) {
+                return of(res.data);
+              }
+
+              return this.novedadesService.openNovedades$(res).pipe(switchMap(() => of(res.data)));
+            }),
+          )
+      : this.http.post<T>(url, body, {
+          headers: this.getHeaders(),
+          params: this.buildParams(extraParams?.queryParams),
+        });
+
+    return obs$.pipe(finalize(() => this.setLoading(ref, false)));
   }
 
-  postWithBlock<T>(url: string, body: any, extraParams?: any, message?: string): Observable<T> {
+  postWithBlock<T>(
+    url: string,
+    body: any,
+    extraParams?: ExtraParamsHttp,
+    message?: string,
+  ): Observable<T> {
     this.loadingService.show(message);
 
-    return this.http
-      .post<T>(url, body, {
-        headers: this.getHeaders(),
-        params: this.buildParams(extraParams),
-      })
-      .pipe(finalize(() => this.loadingService.hide()));
+    return this.post<T>(url, body, undefined, extraParams).pipe(
+      finalize(() => this.loadingService.hide()),
+    );
   }
 
   putWithBlock<T>(url: string, body: any, message?: string): Observable<T> {
@@ -151,7 +171,7 @@ export class ApiHttpService {
       })
       .pipe(finalize(() => this.setLoading(ref, false)))
       .subscribe((blob) => {
-        this.downloadFile(blob, fileName)
+        this.downloadFile(blob, fileName);
       });
   }
 
@@ -165,9 +185,9 @@ export class ApiHttpService {
         ref,
       })
       .pipe(
-        tap(blob => this.downloadFile(blob, fileName)),
+        tap((blob) => this.downloadFile(blob, fileName)),
         finalize(() => this.setLoading(ref, false)),
-        map(() => void 0)
+        map(() => void 0),
       );
   }
 
@@ -226,4 +246,12 @@ export class ApiHttpService {
       URL.revokeObjectURL(objectUrl);
     }, 100);
   }
+
+  private static from<T>(response: ApiNovedadesResponse<T>): ApiNovedadesResponse<T> {
+    return Object.assign(
+      new ApiNovedadesResponse<T>(),
+      response
+    );
+  }
 }
+
