@@ -78,7 +78,7 @@ export class GridComponent<T extends Record<string, any>>
   private destroy$ = new Subject<void>();
 
   ngOnInit(): void {
-    this.columns = this.config.columns;
+    this.columns = this.buildConfgColumns(this.config.columns);
     this.menuActions = this.config.menuActions ?? [];
     this.toolbarButtons = this.config.toolBarActions ?? [];
     this.selectableSettings = this.config.selectableSettings ?? this.defaultSelectable();
@@ -112,6 +112,16 @@ export class GridComponent<T extends Record<string, any>>
   }
 
   //Defaluts
+
+  private buildConfgColumns<T>(columns: GridColumn<T>[]): GridColumn<T>[] {
+    return columns.map(value => {
+      return {
+        ...value,
+        sortable: value.sortable ?? true,
+        filter: value.filter ?? false,
+        hidden: value.hidden ?? false
+      }});
+  }
 
   private defaultSelectable<T>(): SelectebleSettings<T> {
       return {

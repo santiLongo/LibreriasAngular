@@ -1,6 +1,6 @@
 {
   "name": "lib-components",
-  "version": "21.0.7",
+  "version": "21.0.9",
   "peerDependencies": {
     "@angular/cdk": "^21.2.0",
     "@angular/common": "^21.2.0",
