@@ -9,30 +9,69 @@
       [compareWith]="compareByNumero"
       [errorStateMatcher]="errorStateMatcher"
       (selectionChange)="onSelectionChange($event.value)"
+      (openedChange)="onPanelToggle($event)"
     >
-      <mat-option disabled>
+      <!--
+        El buscador NO puede ir adentro de un <mat-option disabled>: Material le
+        pone pointer-events: none y después no se lo puede volver a clickear.
+      -->
+      <div
+        style="
+          position: sticky;
+          top: 0;
+          z-index: 1;
+          padding: 8px 16px;
+          border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+          background: var(--mat-select-panel-background-color, #fff);
+        "
+        (click)="$event.stopPropagation()"
+        (keydown)="onBuscadorKeydown($event)"
+      >
         <input
-          matInput
+          #buscador
+          type="text"
+          autocomplete="off"
           placeholder="Buscar..."
+          [value]="search"
           (input)="onSearchChange($any($event.target).value)"
-          (click)="$event.stopPropagation()"
+          style="
+            width: 100%;
+            box-sizing: border-box;
+            border: none;
+            outline: none;
+            background: transparent;
+            font: inherit;
+            color: inherit;
+          "
         />
-      </mat-option>
+      </div>
 
-      @for (item of filteredData$ | async; track item.numero) {
-        <mat-option [value]="item.numero">
+      <!--
+        Las opciones que no coinciden se esconden en vez de sacarse del DOM:
+        si mat-select las destruye, pierde las que estaban seleccionadas.
+      -->
+      @for (item of items; track item.numero) {
+        <mat-option
+          [value]="item.numero"
+          [disabled]="!coincide(item)"
+          [style.display]="coincide(item) ? null : 'none'"
+        >
           {{ item.descripcion }}
+        </mat-option>
+      }
+
+      @if (!hayResultados) {
+        <mat-option disabled>
+          {{ cargando ? 'Buscando...' : 'Sin resultados' }}
         </mat-option>
       }
     </mat-select>
   } @else {
-    @let items = data$ | async;
-
     <input
       #readonlyInput
       matInput
       readonly
-      [value]="getDescripcion(items)"
+      [value]="descripcionSeleccionada"
       [errorStateMatcher]="errorStateMatcher"
     />
   }

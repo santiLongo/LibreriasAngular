@@ -1,34 +1,42 @@
-<mat-form-field
-  #mat
-  appearance="fill"
-  style="width: 100%"
-  (click)="handleClick()"
->
+<mat-form-field appearance="fill" style="width: 100%" (click)="handleClick()">
   <mat-label>{{ label }}</mat-label>
 
   @if (!readonly) {
-    <mat-select
-      [value]="value"
+    <input
+      #input
+      matInput
+      type="text"
+      autocomplete="off"
+      [value]="texto"
       [disabled]="disabled"
-      [compareWith]="compareByNumero"
       [errorStateMatcher]="errorStateMatcher"
-      (selectionChange)="onSelectionChange($event.value)"
-      (click)="handleClick()"
+      [matAutocomplete]="auto"
+      (focus)="onFocus()"
+      (input)="onInput($any($event.target).value)"
+      (blur)="onBlur()"
+    />
+
+    <mat-autocomplete
+      #auto="matAutocomplete"
+      autoActiveFirstOption
+      [displayWith]="mostrarDescripcion"
+      (optionSelected)="onOptionSelected($event.option.value)"
     >
-      @for (item of data$ | async; track item.numero) {
+      @for (item of filtrados; track item.numero) {
         <mat-option [value]="item.numero">
           {{ item.descripcion }}
         </mat-option>
+      } @empty {
+        <mat-option disabled>
+          {{ loading ? 'Buscando...' : 'Sin resultados' }}
+        </mat-option>
       }
-    </mat-select>
+    </mat-autocomplete>
   } @else {
-    @let items = data$ | async;
-
     <input
-      #readonlyInput
       matInput
       readonly
-      [value]="getDescripcion(items)"
+      [value]="texto"
       [errorStateMatcher]="errorStateMatcher"
     />
   }
@@ -39,7 +47,7 @@
       mat-icon-button
       type="button"
       aria-label="Clear"
-      (click)="clear()"
+      (click)="clear(); $event.stopPropagation()"
       style="border-color: transparent; background-color: transparent"
       tabindex="-1"
     >

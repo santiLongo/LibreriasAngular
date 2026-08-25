@@ -4,6 +4,7 @@ import {
   ChangeDetectorRef,
   Component,
   DoCheck,
+  ElementRef,
   forwardRef,
   Inject,
   Input,
@@ -23,26 +24,20 @@ import {
   NgControl,
   ReactiveFormsModule,
 } from '@angular/forms';
-import { ErrorStateMatcher, MatNativeDateModule } from '@angular/material/core';
-import { MatDatepickerModule } from '@angular/material/datepicker';
+import { ErrorStateMatcher } from '@angular/material/core';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInput, MatInputModule } from '@angular/material/input';
 import { MatSelect, MatSelectModule } from '@angular/material/select';
-import { IMaskModule } from 'angular-imask';
-import {
-  BehaviorSubject,
-  distinctUntilChanged,
-  map,
-  Observable,
-  of,
-  Subscription,
-} from 'rxjs';
+import { BehaviorSubject, distinctUntilChanged, Observable, of, Subscription, take } from 'rxjs';
 import {
   COMBO_DATA_PROVIDER,
   IComboDataProvider,
 } from '../combo/services/combo-http.service';
 import { ComboType } from './models/combo-type';
+
+/** Teclas que dejamos pasar al mat-select para poder navegar desde el buscador */
+const TECLAS_NAVEGACION = ['ArrowDown', 'ArrowUp', 'Enter', 'Escape', 'Tab'];
 
 @Component({
   standalone: true,
@@ -63,9 +58,6 @@ import { ComboType } from './models/combo-type';
     MatFormFieldModule,
     MatInputModule,
     MatIconModule,
-    MatNativeDateModule,
-    MatDatepickerModule,
-    IMaskModule,
   ],
 })
 export class MultipleComboComponent
@@ -78,6 +70,7 @@ export class MultipleComboComponent
     OnDestroy
 {
   @ViewChild(MatSelect) matSelect!: MatSelect;
+  @ViewChild('buscador') buscadorRef?: ElementRef<HTMLInputElement>;
 
   /** Sólo existe cuando el combo está en readonly */
   @ViewChild('readonlyInput', { read: MatInput }) readonlyInput?: MatInput;
@@ -89,13 +82,15 @@ export class MultipleComboComponent
   @Input() readonly = false;
   @Input() extraParams: any;
 
-  data$!: Observable<ComboType[]>;
-
   value: (string | number)[] = [];
   disabled = false;
 
+  items: ComboType[] = [];
+
+  /** Texto del buscador que está adentro del panel */
   search = '';
-  filteredData$!: Observable<ComboType[]>;
+
+  cargando = false;
 
   /**
    * Ni el mat-select ni el input tienen su propio formControl, así que Material
@@ -126,19 +121,16 @@ export class MultipleComboComponent
   }
 
   ngOnInit(): void {
-    this.loadData();
-    this.aplicarFiltro(this.search);
+    this.cargarDatos();
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes['extraParams'] && !changes['extraParams'].firstChange) {
-      this.loadData();
-      this.aplicarFiltro(this.search);
-    }
+    const cambio =
+      (changes['extraParams'] && !changes['extraParams'].firstChange) ||
+      (changes['type'] && !changes['type'].firstChange);
 
-    if (changes['type'] && !changes['type'].firstChange) {
-      this.loadData();
-      this.aplicarFiltro(this.search);
+    if (cambio) {
+      this.cargarDatos();
     }
   }
 
@@ -176,10 +168,19 @@ export class MultipleComboComponent
     this.readonlyInput?.updateErrorState();
   }
 
-  private loadData() {
-    this.data$ = this.isLocal
+  /** La data se guarda en un array: si no, cada tecla del buscador re-dispara la request */
+  private cargarDatos(): void {
+    const obs: Observable<ComboType[]> = this.isLocal
       ? of(this.data)
       : this.dataProvider.getDataCombo(this.type, this.extraParams);
+
+    this.cargando = true;
+
+    obs.pipe(take(1)).subscribe((items) => {
+      this.items = items ?? [];
+      this.cargando = false;
+      this.changeDetectorRef.markForCheck();
+    });
   }
 
   writeValue(value: any): void {
@@ -206,38 +207,86 @@ export class MultipleComboComponent
     this.value = value ?? [];
     this.onChange(this.value);
     this.onTouched();
+
+    // después de elegir, el foco vuelve al panel: se lo devolvemos al buscador
+    // para poder seguir filtrando sin tener que clickearlo
+    if (this.matSelect?.panelOpen) {
+      this.enfocarBuscador();
+    }
+  }
+
+  onPanelToggle(abierto: boolean): void {
+    if (abierto) {
+      // que se pueda tipear apenas se abre
+      this.enfocarBuscador();
+      return;
+    }
+
+    this.onTouched();
+    this.limpiarBusqueda();
+  }
+
+  /** El input vive en el panel, que se crea y se destruye en cada apertura. */
+  private enfocarBuscador(): void {
+    setTimeout(() => this.buscadorRef?.nativeElement.focus());
+  }
+
+  onSearchChange(value: string): void {
+    this.search = value;
+  }
+
+  /**
+   * Las letras se quedan en el buscador (si no, el typeahead del mat-select
+   * mueve la selección), pero las flechas y el enter siguen navegando.
+   */
+  onBuscadorKeydown(event: KeyboardEvent): void {
+    if (!TECLAS_NAVEGACION.includes(event.key)) {
+      event.stopPropagation();
+    }
+  }
+
+  coincide(item: ComboType): boolean {
+    const busqueda = this.normalizar(this.search);
+    if (!busqueda) return true;
+
+    return this.normalizar(item.descripcion).includes(busqueda);
   }
 
   clear(): void {
     this.onSelectionChange([]);
     this.matSelect?.writeValue([]);
+    this.limpiarBusqueda();
   }
 
-  trackByNumero = (_: number, item: ComboType) => item.numero;
+  private limpiarBusqueda(): void {
+    if (!this.search) return;
+
+    this.search = '';
+    this.changeDetectorRef.markForCheck();
+  }
 
   compareByNumero = (a: any, b: any): boolean => a === b;
 
-  onSearchChange(value: string) {
-    this.search = value;
-    this.aplicarFiltro(value);
+  /** Sin mayúsculas ni acentos, para que "cordoba" encuentre "Córdoba" */
+  private normalizar(texto: string): string {
+    return (texto ?? '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim();
   }
 
-  private aplicarFiltro(search: string) {
-    this.filteredData$ = this.data$.pipe(
-      map((items) =>
-        items.filter((x) =>
-          x.descripcion.toLowerCase().includes(search.toLowerCase()),
-        ),
-      ),
-    );
+  get hayResultados(): boolean {
+    return this.items.some((item) => this.coincide(item));
   }
 
-  getDescripcion(items: ComboType[] | null): string {
-    if (!items || !this.value?.length) return '';
+  get descripcionSeleccionada(): string {
+    if (!this.value?.length) return '';
 
-    const seleccionados = items.filter((x) => this.value.includes(x.numero));
-
-    return seleccionados.map((x) => x.descripcion).join(', ');
+    return this.items
+      .filter((x) => this.value.includes(x.numero))
+      .map((x) => x.descripcion)
+      .join(', ');
   }
 
   get hasValue(): boolean {

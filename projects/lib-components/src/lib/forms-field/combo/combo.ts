@@ -4,6 +4,7 @@ import {
   ChangeDetectorRef,
   Component,
   DoCheck,
+  ElementRef,
   forwardRef,
   Inject,
   Input,
@@ -22,21 +23,15 @@ import {
   NgControl,
   ReactiveFormsModule,
 } from '@angular/forms';
-import { ErrorStateMatcher, MatNativeDateModule } from '@angular/material/core';
-import { MatDatepickerModule } from '@angular/material/datepicker';
+import {
+  MatAutocompleteModule,
+  MatAutocompleteTrigger,
+} from '@angular/material/autocomplete';
+import { ErrorStateMatcher } from '@angular/material/core';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInput, MatInputModule } from '@angular/material/input';
-import { MatSelect, MatSelectModule } from '@angular/material/select';
-import { IMaskModule } from 'angular-imask';
-import {
-  BehaviorSubject,
-  distinctUntilChanged,
-  Observable,
-  of,
-  Subscription,
-  take,
-} from 'rxjs';
+import { BehaviorSubject, distinctUntilChanged, Observable, of, Subscription, take } from 'rxjs';
 import { ComboType } from './models/combo-type';
 import {
   COMBO_DATA_PROVIDER,
@@ -58,22 +53,20 @@ import {
     CommonModule,
     FormsModule,
     ReactiveFormsModule,
-    MatSelectModule,
     MatFormFieldModule,
     MatInputModule,
     MatIconModule,
-    MatNativeDateModule,
-    MatDatepickerModule,
-    IMaskModule,
+    MatAutocompleteModule,
   ],
 })
 export class ComboComponent
   implements ControlValueAccessor, OnChanges, AfterViewInit, DoCheck, OnDestroy
 {
-  @ViewChild(MatSelect) matSelect!: MatSelect;
+  @ViewChild('input') inputRef?: ElementRef<HTMLInputElement>;
+  @ViewChild(MatAutocompleteTrigger) trigger?: MatAutocompleteTrigger;
 
-  /** Sólo existe cuando el combo está en readonly */
-  @ViewChild('readonlyInput', { read: MatInput }) readonlyInput?: MatInput;
+  /** Es el input editable o el de readonly, según la rama del template */
+  @ViewChild(MatInput) matInput?: MatInput;
 
   @Input({ required: true }) label!: string;
   @Input() type = '';
@@ -82,18 +75,23 @@ export class ComboComponent
   @Input() readonly = false;
   @Input() extraParams: any;
 
-  data$!: Observable<ComboType[]>;
-
+  /** numero de la opción elegida */
   value: string | number | null = null;
   disabled = false;
 
+  /** Lo que se ve en el input: siempre la descripción de la opción elegida */
+  texto = '';
+
+  items: ComboType[] = [];
+  filtrados: ComboType[] = [];
+
   loaded = false;
-  private loading = false;
+  loading = false;
 
   /**
-   * Ni el mat-select ni el input tienen su propio formControl, así que Material
-   * nunca los marca en error por las suyas. Con este matcher le decimos cuándo
-   * están en error mirando el control del CVA.
+   * Ni el input tiene su propio formControl, así que Material nunca lo marca
+   * en error por las suyas. Con este matcher le decimos cuándo está en error
+   * mirando el control del CVA.
    */
   readonly errorStateMatcher: ErrorStateMatcher = {
     isErrorState: () => this.showError,
@@ -119,14 +117,23 @@ export class ComboComponent
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes['extraParams'] && !changes['extraParams'].firstChange) {
-      this.loaded = false;
-      this.loadData();
-    }
+    const cambio =
+      (changes['extraParams'] && !changes['extraParams'].firstChange) ||
+      (changes['type'] && !changes['type'].firstChange);
 
-    if (changes['type'] && !changes['type'].firstChange) {
-      this.loaded = false;
-      this.loadData();
+    if (!cambio) return;
+
+    const yaEstabaCargado = this.loaded;
+
+    this.items = [];
+    this.filtrados = [];
+    this.texto = '';
+    this.loaded = false;
+    this.loading = false;
+
+    // si el usuario ya lo había abierto, recargamos para que no quede vacío
+    if (yaEstabaCargado) {
+      this.asegurarDatos(false);
     }
   }
 
@@ -134,14 +141,14 @@ export class ComboComponent
     const control = this.ngControl?.control;
     if (control) {
       this.subscriptions.add(
-        control.statusChanges.subscribe(() => this.refreshErrorState()),
+        control.statusChanges.subscribe(() => this.matInput?.updateErrorState()),
       );
       this.subscriptions.add(
         this.touched$.subscribe(() => {
-          this.refreshErrorState();
+          this.matInput?.updateErrorState();
         }),
       );
-      this.refreshErrorState();
+      this.matInput?.updateErrorState();
     }
 
     this.changeDetectorRef.detectChanges();
@@ -159,46 +166,18 @@ export class ComboComponent
     this.subscriptions.unsubscribe();
   }
 
-  private refreshErrorState(): void {
-    this.matSelect?.updateErrorState();
-    this.readonlyInput?.updateErrorState();
-  }
-
-  private loadData() {
-    this.data$ = this.isLocal
-      ? of(this.data)
-      : this.dataProvider.getDataCombo(this.type, this.extraParams);
-  }
-
   writeValue(value: any): void {
     this.value = value ?? null;
 
-    // 🔥 si viene valor y todavía no cargaste datos, cargalos
+    // si viene valor y todavía no cargaste datos, cargalos para poder mostrar
+    // la descripción
     if (this.value != null && !this.loaded && !this.loading) {
-      this.loading = true;
-
-      const obs = this.isLocal
-        ? of(this.data)
-        : this.dataProvider.getDataCombo(this.type, this.extraParams);
-
-      obs.pipe(take(1)).subscribe((data) => {
-        this.data$ = of(data);
-        this.loaded = true;
-        this.loading = false;
-
-        // esperar render para que mat-select tome el valor
-        queueMicrotask(() => {
-          this.matSelect?.writeValue(this.value);
-        });
-      });
-
+      this.asegurarDatos(false);
       return;
     }
 
-    // caso normal
-    queueMicrotask(() => {
-      this.matSelect?.writeValue(this.value);
-    });
+    this.texto = this.descripcionDe(this.value);
+    this.changeDetectorRef.markForCheck();
   }
 
   registerOnChange(fn: any): void {
@@ -213,54 +192,116 @@ export class ComboComponent
     this.disabled = isDisabled;
   }
 
-  onSelectionChange(value: any): void {
-    this.value = value ?? null;
+  /** Click en cualquier parte del campo */
+  handleClick(): void {
+    if (this.readonly || this.disabled) return;
+
+    this.asegurarDatos(true);
+  }
+
+  onFocus(): void {
+    // al entrar mostramos la lista completa, no filtrada por el texto que quedó
+    this.filtrados = this.items;
+    this.asegurarDatos(true);
+  }
+
+  /** Tipear sólo filtra: el valor cambia únicamente al elegir una opción */
+  onInput(texto: string): void {
+    this.texto = texto;
+    this.filtrar(texto);
+  }
+
+  onOptionSelected(numero: string | number): void {
+    this.value = numero;
+    this.texto = this.descripcionDe(numero);
+    this.filtrados = this.items;
+
     this.onChange(this.value);
     this.onTouched();
   }
 
-  handleClick() {
-    if (this.loaded || this.loading) return;
+  /**
+   * No se puede quedar con texto libre: al salir se restaura la descripción de
+   * la opción elegida (o vacío si no hay ninguna).
+   */
+  onBlur(): void {
+    this.onTouched();
+
+    this.texto = this.descripcionDe(this.value);
+    this.filtrados = this.items;
+    this.changeDetectorRef.markForCheck();
+  }
+
+  clear(): void {
+    this.value = null;
+    this.texto = '';
+    this.filtrados = this.items;
+
+    this.onChange(null);
+    this.onTouched();
+
+    queueMicrotask(() => this.inputRef?.nativeElement.focus());
+  }
+
+  private asegurarDatos(abrirPanel: boolean): void {
+    if (this.loading) return;
+
+    if (this.loaded) {
+      if (abrirPanel) this.trigger?.openPanel();
+      return;
+    }
 
     this.loading = true;
 
-    const obs = this.isLocal
+    const obs: Observable<ComboType[]> = this.isLocal
       ? of(this.data)
       : this.dataProvider.getDataCombo(this.type, this.extraParams);
 
-    obs.subscribe((data) => {
-      this.data$ = of(data);
+    obs.pipe(take(1)).subscribe((items) => {
+      this.items = items ?? [];
+      this.filtrados = this.items;
       this.loaded = true;
       this.loading = false;
 
-      // MatSelect no abre si la lista de opciones está vacía, así que primero
-      // renderizamos las mat-option y recién ahí lo abrimos.
-      // (No sirve esperar a zone.onStable: la app es zoneless y nunca emite.)
-      this.changeDetectorRef.detectChanges();
-
-      // en readonly no hay mat-select
-      if (!this.matSelect?.panelOpen) {
-        this.matSelect?.open();
+      if (abrirPanel) {
+        // el panel tiene que tener las opciones renderizadas antes de abrirse
+        this.changeDetectorRef.detectChanges();
+        this.trigger?.openPanel();
+      } else {
+        this.texto = this.descripcionDe(this.value);
+        this.changeDetectorRef.markForCheck();
       }
     });
   }
 
-  clear(): void {
-    this.onSelectionChange(null);
-    this.matSelect?.writeValue(null);
+  private filtrar(texto: string): void {
+    const busqueda = this.normalizar(texto);
+
+    this.filtrados = busqueda
+      ? this.items.filter((x) => this.normalizar(x.descripcion).includes(busqueda))
+      : this.items;
   }
 
-  trackByNumero = (_: number, item: ComboType) => item.numero;
+  /**
+   * Sin esto, al elegir una opción el trigger del autocomplete escribe el
+   * `numero` crudo adentro del input en vez de la descripción.
+   */
+  mostrarDescripcion = (numero: string | number | null): string =>
+    this.descripcionDe(numero);
 
-  compareByNumero = (a: any, b: any): boolean => {
-    return a === b;
-  };
+  private descripcionDe(numero: string | number | null): string {
+    if (numero === null) return '';
 
-  getDescripcion(items: ComboType[] | null): string {
-    if (!items) return '';
+    return this.items.find((x) => x.numero === numero)?.descripcion ?? '';
+  }
 
-    const found = items.find((x) => x.numero === this.value);
-    return found?.descripcion ?? '';
+  /** Sin mayúsculas ni acentos, para que "cordoba" encuentre "Córdoba" */
+  private normalizar(texto: string): string {
+    return (texto ?? '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim();
   }
 
   get hasValue(): boolean {
