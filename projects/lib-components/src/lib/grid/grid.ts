@@ -1,12 +1,15 @@
-import { Component, EventEmitter, Input, OnDestroy, OnInit, Output, TemplateRef, ViewChild } from '@angular/core';
+import { Component, EventEmitter, Input, OnDestroy, OnInit, Output } from '@angular/core';
 import { NzTableModule, NzTableSortOrder } from 'ng-zorro-antd/table';
 import {
   GridColumn,
   GridConfig,
   GridMenuAction,
   GridToolBarAction,
-  SelectebleSettings,
 } from './models/model';
+import { GridColumns } from './models/grid-columns';
+import { GridSelection } from './models/grid-selection';
+import { GridExpand } from './models/grid-expand';
+import { GridEditState } from './models/grid-edit-state';
 import { Subject, takeUntil } from 'rxjs';
 import { BaseGridService } from './services/base-grid.service';
 import { DynamicFormatPipe } from './pipes/dynamic-format.pipe';
@@ -14,6 +17,7 @@ import { NzDropDownModule } from 'ng-zorro-antd/dropdown';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzMenuModule } from 'ng-zorro-antd/menu';
+import { NzPaginationModule } from 'ng-zorro-antd/pagination';
 import { MatIconModule } from '@angular/material/icon';
 import { ButtonComponent } from '../button/button';
 import { MatMenuModule } from '@angular/material/menu';
@@ -37,6 +41,7 @@ import { HttpRef } from 'lib-servicios';
     NzIconModule,
     NzButtonModule,
     NzMenuModule,
+    NzPaginationModule,
     MatIconModule,
     ButtonComponent,
     MatMenuModule,
@@ -51,58 +56,74 @@ import { HttpRef } from 'lib-servicios';
 export class GridComponent<T extends Record<string, any>>
   implements OnInit, OnDestroy
 {
-  @ViewChild('toolbar', {static: true}) toolbar: TemplateRef<any> 
-  @ViewChild('footer', {static: true}) footer: TemplateRef<any> 
-
   @Input({ required: true }) dataService!: BaseGridService<T>;
   @Input({ required: true }) config!: GridConfig<T>;
   @Input() hiddenRefresh = false;
   @Input() isLocal = false;
-  @Input() ref: HttpRef
+  @Input() ref: HttpRef;
+
+  @Input() selectedRows: T[] = [];
+  @Output() selectedRowsChange = new EventEmitter<T[]>();
 
   data: T[] = [];
-  columns: GridColumn<T>[] = [];
+  total = 0;
+
+  /** Columnas, header y totales */
+  columns!: GridColumns<T>;
+  /** Filas tildadas */
+  selection!: GridSelection<T>;
+  /** Filas abiertas */
+  expand!: GridExpand<T>;
+  /** Sólo cuando la config es editable y el servicio lo soporta */
+  edit?: GridEditState<T>;
+
   menuActions: GridMenuAction<T>[] = [];
   toolbarButtons: GridToolBarAction<T>[] = [];
-  selectableSettings?: SelectebleSettings<T>;
-  checked = false;
-  indeterminate = false;
-  total = 10;
+
   ICONS = ICONS;
   activeFilterColumn?: string;
   searchValue = new FormControl('');
   filterVisible: Record<string, boolean> = {};
-  editableService?: EditableGridService<T>;
 
-  @Input() selectedRows: T[] = [];
-  @Output() selectedRowsChange = new EventEmitter<T[]>();
-  private selectedSet = new Set<T>();
+  private editableService?: EditableGridService<T>;
+  private totalesServicio: Record<string, number> | null = null;
+  private totales: Record<string, number> = {};
 
   private destroy$ = new Subject<void>();
 
   ngOnInit(): void {
-    this.columns = this.buildConfgColumns(this.config.columns);
+    this.columns = new GridColumns(this.config.columns);
     this.menuActions = this.config.menuActions ?? [];
     this.toolbarButtons = this.config.toolBarActions ?? [];
-    this.selectableSettings = this.config.selectableSettings ?? this.defaultSelectable();
+    this.selection = new GridSelection(this.config.selectableSettings);
+    this.expand = new GridExpand(this.config.expandable);
 
     if (this.config.isEditable && this.isEditableService(this.dataService)) {
       this.editableService = this.dataService;
+      this.edit = new GridEditState(this.dataService, this.rowKey);
     }
 
-    if(!this.ref){
+    if (!this.ref) {
       this.ref = this.dataService.ref;
     }
 
-    this.dataService.data$.pipe(takeUntil(this.destroy$)).subscribe((data) => {
-      this.data = data;
-      this.buildEditCache();
-      this.resetSelectionStatus();
-    });
+    this.dataService.data$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((data) => this.onData(data));
 
     this.dataService.total$
       .pipe(takeUntil(this.destroy$))
-      .subscribe((t) => (this.total = t));
+      .subscribe((total) => {
+        this.total = total;
+        this.recalcularTotales();
+      });
+
+    this.dataService.totals$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((totales) => {
+        this.totalesServicio = totales;
+        this.recalcularTotales();
+      });
   }
 
   ngOnDestroy(): void {
@@ -110,103 +131,87 @@ export class GridComponent<T extends Record<string, any>>
     this.destroy$.complete();
   }
 
+  private onData(data: T[]): void {
+    this.data = data;
+    this.edit?.sincronizar(data);
+
+    // Sin rowKey la clave es el índice, y al paginar apuntaría a otra fila
+    if (!this.config.rowKey) this.expand.limpiar();
+
+    this.selection.limpiar();
+    this.emitirSeleccion();
+    this.recalcularTotales();
+  }
+
   onPageSizeChange() {
     this.dataService.search();
   }
 
-  //Defaluts
+  /**
+   * Identidad de la fila para el trackBy, el cache de edición y el expand.
+   * Usa, en ese orden: la config, el servicio editable y el índice.
+   */
+  rowKey = (row: T, index: number): string => {
+    if (this.config.rowKey) return this.config.rowKey(row);
 
-  private buildConfgColumns<T>(columns: GridColumn<T>[]): GridColumn<T>[] {
-    return columns.map(value => {
-      return {
-        ...value,
-        sortable: value.sortable ?? true,
-        filter: value.filter ?? false,
-        hidden: value.hidden ?? false
-      }});
-  }
-
-  private defaultSelectable<T>(): SelectebleSettings<T> {
-      return {
-      type: "single",
-      selectable: true
-    }
-  }
-
-  //Metodos para seleccionar
-
-  isChecked(row: T): boolean {
-    return this.selectedSet.has(row);
-  }
-
-  onRowChecked(row: T, checked: boolean) {
-    if (!this.selectableSettings?.selectable) return;
-
-    if (this.selectableSettings.type === 'single') {
-      if (checked) {
-        this.selectedSet.clear();
-        this.selectedSet.add(row);
-      } else {
-        this.selectedSet.delete(row);
+    if (this.editableService) {
+      try {
+        return this.editableService.getRowKey(row);
+      } catch {
+        return String(index);
       }
-    } else {
-      checked ? this.selectedSet.add(row) : this.selectedSet.delete(row);
     }
 
-    this.refreshSelectionStatus();
-  }
+    return String(index);
+  };
 
-  onAllChecked(checked: boolean) {
-    if (!this.selectableSettings?.selectable) return;
-
-    const selectableRows = this.data.filter((r) => this.isRowSelectable(r));
-
-    if (this.selectableSettings.type === 'single') {
-      this.selectedSet.clear();
-    } else {
-      selectableRows.forEach((row) => {
-        checked ? this.selectedSet.add(row) : this.selectedSet.delete(row);
-      });
-    }
-
-    this.refreshSelectionStatus();
-  }
-
-  private refreshSelectionStatus() {
-    const pageData = this.data;
-
-    const selectedOnPage = pageData.filter((r) =>
-      this.selectedSet.has(r),
-    ).length;
-
-    this.checked = selectedOnPage > 0 && selectedOnPage === pageData.length;
-    this.indeterminate = selectedOnPage > 0 && selectedOnPage < pageData.length;
-
-    this.selectedRows = Array.from(this.selectedSet);
-    this.selectedRowsChange.emit(this.selectedRows);
-  }
-
-  private resetSelectionStatus(): void {
-    this.selectedSet.clear();
-    this.selectedRows = [];
-    this.checked = false;
-    this.indeterminate = false;
-    this.selectedRowsChange.emit(this.selectedRows);
-  }
-
-
-  public isRowSelectable(row: T): boolean {
-    if (!this.selectableSettings?.selectable) return false;
-    if (!this.selectableSettings.esSelectable) return true;
-    return this.selectableSettings.esSelectable(row);
-  }
+  // Toolbar
 
   get leftButtons() {
-    return this.config.toolBarActions?.filter(a => a.position !== 'right') ?? [];
+    return this.toolbarButtons.filter((action) => action.position !== 'right');
   }
 
   get rightButtons() {
-    return this.config.toolBarActions?.filter(a => a.position === 'right') ?? [];
+    return this.toolbarButtons.filter((action) => action.position === 'right');
+  }
+
+  /** Columnas que la grilla agrega antes de las de datos (check, expand, edición, acciones) */
+  get systemColumns(): number {
+    let cantidad = 0;
+
+    if (this.expand.activo) cantidad++;
+    if (this.selection.activa) cantidad++;
+    if (this.edit) cantidad++;
+    if (this.menuActions.length > 0) cantidad++;
+
+    return cantidad;
+  }
+
+  // Selección
+
+  onRowChecked(row: T, checked: boolean) {
+    this.selection.toggle(row, checked, this.data);
+    this.emitirSeleccion();
+  }
+
+  onAllChecked(checked: boolean) {
+    this.selection.toggleTodas(checked, this.data);
+    this.emitirSeleccion();
+  }
+
+  private emitirSeleccion() {
+    this.selectedRows = this.selection.rows;
+    this.selectedRowsChange.emit(this.selectedRows);
+  }
+
+  // Expandir
+
+  onExpandChange(row: T, index: number, abierta: boolean) {
+    this.expand.toggle(this.rowKey(row, index), abierta);
+  }
+
+  estaExpandida(row: T, index: number): boolean {
+    return this.expand.esta(this.rowKey(row, index));
   }
 
   // Filtros y ordenamiento
@@ -216,13 +221,14 @@ export class GridComponent<T extends Record<string, any>>
   }
 
   onFilterVisibleChange(visible: boolean, column: GridColumn<T>) {
-  if (!visible) return;
+    if (!visible) return;
 
-  this.activeFilterColumn = column.key.toString();
-  this.searchValue.setValue(
-    this.dataService.state.filters?.[column.key as string] ?? ''
-  );
-}
+    this.activeFilterColumn = column.key.toString();
+    this.searchValue.setValue(
+      this.dataService.state.filters?.[column.key as string] ?? ''
+    );
+  }
+
   applyFilter(field: string) {
     this.dataService.setFilter(field, this.searchValue.getRawValue());
     this.filterVisible[field] = false;
@@ -237,6 +243,7 @@ export class GridComponent<T extends Record<string, any>>
   getSortOrder(key: keyof T): NzTableSortOrder {
     const sort = this.dataService.state.sort;
     if (!sort || sort.field !== key) return null;
+
     return sort.direction === 'asc' ? 'ascend' : 'descend';
   }
 
@@ -250,95 +257,24 @@ export class GridComponent<T extends Record<string, any>>
     this.dataService.setSort(key as string, direction);
   }
 
-  // Para editable
-  trackRow = (index: number, row: T): string => {
-    if (!this.editableService) return String(index);
-    try {
-      return this.editableService.getRowKey(row);
-    } catch {
-      return String(index);
-    }
-  };
+  // Totales
 
+  /** Total ya calculado de la columna, o null si no está sumarizada */
+  totalDe(column: GridColumn<T>): number | null {
+    return this.totales[String(column.key)] ?? null;
+  }
+
+  private recalcularTotales() {
+    if (!this.columns?.hasSummary) return;
+
+    this.totales = this.columns.totales(
+      this.data,
+      this.totalesServicio,
+      this.total,
+    );
+  }
 
   private isEditableService(svc: any): svc is EditableGridService<T> {
     return svc && typeof svc.getRowKey === 'function' && typeof svc.update === 'function';
-  }
-
-  editCache: Record<string, { edit: boolean; data: T }> = {};
-  editingId?: string;
-
-  private buildEditCache() {
-    if (!this.editableService) return;
-
-    const newCache: typeof this.editCache = {};
-
-    for (const row of this.data) {
-      const key = this.editableService.getRowKey(row);
-
-      newCache[key] = this.editCache[key] ?? {
-        edit: false,
-        data: structuredClone(row),
-      };
-    }
-
-    this.editCache = newCache;
-  }
-
-  startEdit(row: T) {
-    if (!this.editableService) return;
-    const key = this.editableService.getRowKey(row);
-    this.editingId = key;
-    this.editCache[key].edit = true;
-  }
-
-  cancelEdit(row: T) {
-    if (!this.editableService) return;
-
-    const key = this.editableService.getRowKey(row);
-    this.editCache[key].edit = false;
-    this.editCache[key].data = structuredClone(row);
-    this.editingId = undefined;
-  }
-
-  addRow() {
-    if (!this.editableService) return;
-
-    const newRow = {} as T;
-
-    this.editableService.add(newRow);
-
-     // esperar microtask para que data$ actualice
-    setTimeout(() => {
-      const added = this.data[0]; // porque usás unshift
-      this.startEdit(added);
-    });
-  }
-
-  saveEdit(row: T) {
-    if (!this.editableService) return;
-
-    const key = this.editableService.getRowKey(row);
-    const edited = this.editCache[key].data;
-
-    this.editCache[key].edit = false;
-    this.editingId = undefined;
-
-    Object.assign(row, edited);
-    this.editableService.update(row);
-  }
-
-  removeEdit(row: T) {
-    if (!this.editableService) return;
-
-    const key = this.editableService.getRowKey(row);
-    const edited = this.editCache[key].data;
-
-    Object.assign(row, edited);
-    this.editableService.remove(row);
-  }
-
-  get showToolbar(): boolean {
-    return !!this.editableService || (!!this.config?.toolBarActions && this.config?.toolBarActions!.length > 0);
   }
 }

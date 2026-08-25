@@ -4,11 +4,14 @@ import { BehaviorSubject, finalize, Observable } from 'rxjs';
 export abstract class BaseGridService<T> {
   private dataSub$ = new BehaviorSubject<T[]>([]);
   private totalSub$ = new BehaviorSubject<number>(0);
+  private totalsSub$ = new BehaviorSubject<Record<string, number> | null>(null);
 
   public ref: HttpRef = { loading: false }
 
   data$ = this.dataSub$.asObservable();
   total$ = this.totalSub$.asObservable();
+  /** Totales del dataset completo para las columnas sumarizadas */
+  totals$ = this.totalsSub$.asObservable();
 
   state: GridState = {
     page: 1,
@@ -16,16 +19,21 @@ export abstract class BaseGridService<T> {
     filters: {}
   };
 
-  protected setData(data: T[], total: number) {
+  protected setData(
+    data: T[],
+    total: number,
+    totals: Record<string, number> | null = null,
+  ) {
     this.dataSub$.next(data);
     this.totalSub$.next(total);
+    this.totalsSub$.next(totals);
   }
 
   public search(): void {
     //
     this.getData(this.state, this.ref)
       .subscribe((res) => {
-        this.setData(res.items, res.total);
+        this.setData(res.items, res.total, res.totals ?? null);
       });
   }
 

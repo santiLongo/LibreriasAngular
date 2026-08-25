@@ -51,6 +51,9 @@ interface Opciones {
   ocultarDestino: boolean;
   hiddenRefresh: boolean;
   demora: boolean;
+  agrupar: boolean;
+  expandible: boolean;
+  totales: boolean;
 }
 
 @Component({
@@ -87,6 +90,7 @@ export class TestGridComponent implements OnInit {
   @ViewChild('estadoTpl', { static: true }) estadoTpl!: TemplateRef<any>;
   @ViewChild('facturadoTpl', { static: true }) facturadoTpl!: TemplateRef<any>;
   @ViewChild('rutaTpl', { static: true }) rutaTpl!: TemplateRef<any>;
+  @ViewChild('detalleTpl', { static: true }) detalleTpl!: TemplateRef<any>;
   @ViewChild('estadoEditTpl', { static: true }) estadoEditTpl!: TemplateRef<any>;
   @ViewChild('kmEditTpl', { static: true }) kmEditTpl!: TemplateRef<any>;
   @ViewChild('importeEditTpl', { static: true }) importeEditTpl!: TemplateRef<any>;
@@ -102,6 +106,9 @@ export class TestGridComponent implements OnInit {
 
   seleccionadas: Viaje[] = [];
   seleccionadasEditable: Viaje[] = [];
+
+  /** Lo que el servicio publica por totals$: es de todo el dataset filtrado, no de la página */
+  totalesServicio: Record<string, number> | null = null;
 
   eventos: string[] = [];
 
@@ -120,6 +127,9 @@ export class TestGridComponent implements OnInit {
     ocultarDestino: false,
     hiddenRefresh: false,
     demora: false,
+    agrupar: true,
+    expandible: true,
+    totales: true,
   };
 
   ngOnInit(): void {
@@ -135,6 +145,19 @@ export class TestGridComponent implements OnInit {
     this.service.data$
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(() => this.cdr.markForCheck());
+
+    this.service.totals$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((totales) => (this.totalesServicio = totales));
+  }
+
+  /** Los totales que publica el servicio, sólo de las columnas que interesan acá */
+  get totalesVisibles(): [string, number][] {
+    if (!this.totalesServicio) return [];
+
+    return Object.entries(this.totalesServicio).filter(([key]) =>
+      ['kilometros', 'importe'].includes(key),
+    );
   }
 
   // ── Opciones ────────────────────────────────────────────
@@ -204,6 +227,14 @@ export class TestGridComponent implements OnInit {
       columns: this.buildColumns(),
       menuActions: this.opciones.menu ? this.buildMenuActions() : [],
       toolBarActions: this.opciones.toolbar ? this.buildToolbarActions() : [],
+      // Con rowKey estable, las filas abiertas siguen abiertas al paginar
+      rowKey: (row) => String(row.id),
+      expandable: this.opciones.expandible
+        ? {
+            template: this.detalleTpl,
+            esExpandible: (row) => row.estado !== 'CANCELADO',
+          }
+        : undefined,
       selectableSettings: {
         type: this.opciones.seleccion === 'multiple' ? 'multiple' : 'single',
         selectable: this.opciones.seleccion !== 'ninguna',
@@ -215,35 +246,65 @@ export class TestGridComponent implements OnInit {
   }
 
   private buildColumns(): GridColumn<Viaje>[] {
-    const { filtros, sort, ocultarDestino } = this.opciones;
+    const { filtros, sort, ocultarDestino, agrupar, totales } = this.opciones;
+
+    // Las mismas columnas sueltas o metidas en grupos, según el toggle
+    const origen: GridColumn<Viaje> = {
+      key: 'origen',
+      title: 'Origen',
+      type: 'text',
+      filter: filtros,
+      sortable: sort,
+    };
+
+    const destino: GridColumn<Viaje> = {
+      key: 'destino',
+      title: 'Destino',
+      type: 'text',
+      filter: filtros,
+      sortable: sort,
+      hidden: ocultarDestino,
+    };
+
+    const kilometros: GridColumn<Viaje> = {
+      key: 'kilometros',
+      title: 'Km',
+      type: 'numeric',
+      format: '{0:0}',
+      sortable: sort,
+      summarize: totales,
+    };
+
+    const importe: GridColumn<Viaje> = {
+      key: 'importe',
+      title: 'Importe',
+      type: 'numeric',
+      format: '{0:2}',
+      sortable: sort,
+      summarize: totales ? 'sum' : false,
+    };
+
+    const recorrido: GridColumn<Viaje>[] = agrupar
+      ? [{ key: 'origen', title: 'Recorrido', type: 'group', group: [origen, destino] }]
+      : [origen, destino];
+
+    const importes: GridColumn<Viaje>[] = agrupar
+      ? [{ key: 'importe', title: 'Importes', type: 'group', group: [kilometros, importe] }]
+      : [kilometros, importe];
 
     return [
-      { key: 'numero', title: 'Nro', type: 'text', filter: filtros, sortable: sort },
-      { key: 'chofer', title: 'Chofer', type: 'text', filter: filtros, sortable: sort },
-      { key: 'patente', title: 'Patente', type: 'text', filter: filtros, sortable: sort },
-      { key: 'origen', title: 'Origen', type: 'text', filter: filtros, sortable: sort },
       {
-        key: 'destino',
-        title: 'Destino',
+        key: 'numero',
+        title: 'Nro',
         type: 'text',
         filter: filtros,
         sortable: sort,
-        hidden: ocultarDestino,
+        summarize: totales ? 'count' : false,
       },
-      {
-        key: 'kilometros',
-        title: 'Km',
-        type: 'numeric',
-        format: '{0:0}',
-        sortable: sort,
-      },
-      {
-        key: 'importe',
-        title: 'Importe',
-        type: 'numeric',
-        format: '{0:2}',
-        sortable: sort,
-      },
+      { key: 'chofer', title: 'Chofer', type: 'text', filter: filtros, sortable: sort },
+      { key: 'patente', title: 'Patente', type: 'text', filter: filtros, sortable: sort },
+      ...recorrido,
+      ...importes,
       { key: 'cuit', title: 'CUIT', type: 'numeric', format: 'cuit', sortable: false },
       { key: 'fecha', title: 'Fecha', type: 'date', format: 'ddMMyyyy', sortable: sort },
       {

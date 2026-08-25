@@ -16,6 +16,7 @@
   margin-right: 8px;
 }
 
+/* ── Toolbar ────────────────────────────────────────────── */
 
 .grid-toolbar {
   display: flex;
@@ -37,8 +38,113 @@
   margin-left: auto; /* empuja a la derecha */
 }
 
-.toolbar-icon-btn {
-  display: flex;
+/* ── Botón icónico (agregar, acciones de fila, refresh) ─── */
+
+.grid-icon-btn {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: rgba(0, 0, 0, 0.55);
+  display: inline-flex;
   align-items: center;
   justify-content: center;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.grid-icon-btn:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.06);
+  color: rgba(0, 0, 0, 0.85);
+}
+
+.grid-icon-btn:active:not(:disabled) {
+  background: rgba(0, 0, 0, 0.12);
+}
+
+.grid-icon-btn:focus-visible {
+  outline: 2px solid var(--color-uno, #44749d);
+  outline-offset: 1px;
+}
+
+.grid-icon-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.grid-icon-btn mat-icon {
+  font-size: 20px;
+  width: 20px;
+  height: 20px;
+  line-height: 20px;
+}
+
+/* ── Columnas de sistema ────────────────────────────────── */
+
+.grid-col-expand {
+  width: 48px;
+}
+
+.grid-col-actions {
+  width: 64px;
+  text-align: center;
+}
+
+.grid-col-edit {
+  width: 150px;
+  white-space: nowrap;
+}
+
+/* ── Header ─────────────────────────────────────────────── */
+
+thead th {
+  font-size: 14px;
+}
+
+.grid-th-group {
+  text-align: center;
+  font-size: 14px;
+}
+
+/* ── Celdas ─────────────────────────────────────────────── */
+
+.grid-cell {
+  font-size: 12px;
+}
+
+/* ── Totales ────────────────────────────────────────────── */
+
+.grid-total,
+.grid-total-label {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.grid-total-label {
+  color: rgba(0, 0, 0, 0.65);
+}
+
+/* ── Pie ────────────────────────────────────────────────── */
+
+.grid-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.grid-footer-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.grid-footer-info {
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.55);
 }

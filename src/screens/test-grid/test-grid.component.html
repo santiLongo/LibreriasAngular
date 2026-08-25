@@ -44,6 +44,21 @@
         (onClick)="toggle('ocultarDestino')"
       ></app-button>
       <app-button
+        [label]="'Agrupar columnas: ' + (opciones.agrupar ? 'ON' : 'OFF')"
+        [type]="opciones.agrupar ? 'success' : 'light'"
+        (onClick)="toggle('agrupar')"
+      ></app-button>
+      <app-button
+        [label]="'Expandibles: ' + (opciones.expandible ? 'ON' : 'OFF')"
+        [type]="opciones.expandible ? 'success' : 'light'"
+        (onClick)="toggle('expandible')"
+      ></app-button>
+      <app-button
+        [label]="'Totales: ' + (opciones.totales ? 'ON' : 'OFF')"
+        [type]="opciones.totales ? 'success' : 'light'"
+        (onClick)="toggle('totales')"
+      ></app-button>
+      <app-button
         [label]="'Botón refresh: ' + (opciones.hiddenRefresh ? 'OCULTO' : 'VISIBLE')"
         [type]="opciones.hiddenRefresh ? 'success' : 'light'"
         (onClick)="toggle('hiddenRefresh')"
@@ -137,6 +152,20 @@
           } @else {
             <p class="vacio">Sin filtros</p>
           }
+
+          <h5>Totales del servicio</h5>
+          @if (totalesVisibles.length) {
+            <ul class="lista">
+              @for (total of totalesVisibles; track total[0]) {
+                <li>
+                  <b>{{ total[0] }}</b>: {{ total[1] | number: "1.0-2" }}
+                </li>
+              }
+            </ul>
+            <p class="vacio">Son de todo el dataset filtrado, no de la página</p>
+          } @else {
+            <p class="vacio">Sin totales</p>
+          }
         </section>
 
         <section class="card">
@@ -187,6 +216,21 @@
 
 <ng-template #rutaTpl let-fila>
   <span class="ruta">{{ fila?.origen }} → {{ fila?.destino }}</span>
+</ng-template>
+
+<!-- Contenido de la fila expandida -->
+<ng-template #detalleTpl let-fila>
+  <div class="detalle">
+    <h4>Viaje {{ fila?.numero }}</h4>
+    <div class="detalle-grid">
+      <div><span>Chofer</span>{{ fila?.chofer }}</div>
+      <div><span>Patente</span>{{ fila?.patente }}</div>
+      <div><span>Recorrido</span>{{ fila?.origen }} → {{ fila?.destino }}</div>
+      <div><span>Km</span>{{ fila?.kilometros }}</div>
+      <div><span>Salida</span>{{ fila?.salida | date: "dd/MM/yyyy HH:mm" }}</div>
+      <div><span>Estado</span>{{ fila?.estado }}</div>
+    </div>
+  </div>
 </ng-template>
 
 <!-- ── Templates de edición (reciben la copia del editCache) ── -->

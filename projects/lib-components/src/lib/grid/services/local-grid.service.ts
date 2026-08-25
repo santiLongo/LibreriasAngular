@@ -56,6 +56,9 @@ export abstract class LocalGridService<T extends Record<string, any>>
 
     const total = data.length;
 
+    // TOTALES: sobre todo lo filtrado, antes de paginar
+    const totals = this.totales(data);
+
     // PAGINADO
     const start = (state.page - 1) * state.pageSize;
     const page = data.slice(start, start + state.pageSize);
@@ -63,7 +66,27 @@ export abstract class LocalGridService<T extends Record<string, any>>
     return of({
       items: this.unwrap(page),
       total,
+      totals,
     });
+  }
+
+  /**
+   * Suma todas las claves numéricas del dataset filtrado. La grilla se queda
+   * sólo con las columnas que pidieron total, así que sumar de más no molesta
+   * y evita que el servicio tenga que conocer la config de la grilla.
+   */
+  protected totales(items: InternalItem<T>[]): Record<string, number> {
+    const totales: Record<string, number> = {};
+
+    for (const { data } of items) {
+      for (const [key, value] of Object.entries(data)) {
+        if (typeof value !== 'number' || isNaN(value)) continue;
+
+        totales[key] = (totales[key] ?? 0) + value;
+      }
+    }
+
+    return totales;
   }
 
   // CRUD SEGURO
