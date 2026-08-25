@@ -12,5 +12,9 @@ export const routes: Routes = [
     {
         path: 'test-form-fields',
         loadComponent: () => import('../screens/test-form-fields/test-form-fields.component').then(m => m.TestFormFieldsComponent)
+    },
+    {
+        path: 'test-grid',
+        loadComponent: () => import('../screens/test-grid/test-grid.component').then(m => m.TestGridComponent)
     }
 ];

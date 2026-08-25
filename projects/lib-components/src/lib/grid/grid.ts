@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, OnDestroy, OnInit, Output } from '@angular/core';
+import { Component, EventEmitter, Input, OnDestroy, OnInit, Output, TemplateRef, ViewChild } from '@angular/core';
 import { NzTableModule, NzTableSortOrder } from 'ng-zorro-antd/table';
 import {
   GridColumn,
@@ -51,6 +51,9 @@ import { HttpRef } from 'lib-servicios';
 export class GridComponent<T extends Record<string, any>>
   implements OnInit, OnDestroy
 {
+  @ViewChild('toolbar', {static: true}) toolbar: TemplateRef<any> 
+  @ViewChild('footer', {static: true}) footer: TemplateRef<any> 
+
   @Input({ required: true }) dataService!: BaseGridService<T>;
   @Input({ required: true }) config!: GridConfig<T>;
   @Input() hiddenRefresh = false;
@@ -333,5 +336,9 @@ export class GridComponent<T extends Record<string, any>>
 
     Object.assign(row, edited);
     this.editableService.remove(row);
+  }
+
+  get showToolbar(): boolean {
+    return !!this.editableService || (!!this.config?.toolBarActions && this.config?.toolBarActions!.length > 0);
   }
 }

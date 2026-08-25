@@ -1,56 +1,55 @@
 <!-- TOOLBAR -->
-<div class="grid-toolbar">
-  <!-- IZQUIERDA -->
-  <div class="toolbar-left">
-    @if (editableService) {
-      <button
-        type="button"
-        class="btn btn-outline-secondary toolbar-icon-btn"
-        (click)="addRow()"
-      >
-        <mat-icon>add</mat-icon>
-      </button>
-    }
+<ng-template #toolbar>
+  <div class="grid-toolbar">
+    <!-- IZQUIERDA -->
+    <div class="toolbar-left">
+      @if (editableService) {
+        <button type="button" class="btn btn-outline-secondary toolbar-icon-btn" (click)="addRow()">
+          <mat-icon>add</mat-icon>
+        </button>
+      }
 
-    @for (action of leftButtons; track action.key) {
-      <app-button
-        [hidden]="action.hidden"
-        [disabled]="
-          (action.disabledOnEmptyRows && selectedRows.length === 0) ||
-          (action.disabled ? action.disabled(selectedRows) : false)
-        "
-        [icon]="action.icon"
-        (onClick)="action.onClick(selectedRows)"
-        [label]="action.label"
-        [type]="action.type"
-        [ref]="ref"
-      />
-    }
-  </div>
+      @for (action of leftButtons; track action.key) {
+        <app-button
+          [hidden]="action.hidden"
+          [disabled]="
+            (action.disabledOnEmptyRows && selectedRows.length === 0) ||
+            (action.disabled ? action.disabled(selectedRows) : false)
+          "
+          [icon]="action.icon"
+          (onClick)="action.onClick(selectedRows)"
+          [label]="action.label"
+          [type]="action.type"
+          [ref]="ref"
+        />
+      }
+    </div>
 
-  <!-- DERECHA -->
-  <div class="toolbar-right">
-    @for (action of rightButtons; track action.key) {
-      <app-button
-        [hidden]="action.hidden"
-        [disabled]="
-          (action.disabledOnEmptyRows && selectedRows.length === 0) ||
-          (action.disabled ? action.disabled(selectedRows) : false)
-        "
-        [icon]="action.icon"
-        (onClick)="action.onClick(selectedRows)"
-        [label]="action.label"
-        [type]="action.type"
-        [ref]="ref"
-      />
-    }
+    <!-- DERECHA -->
+    <div class="toolbar-right">
+      @for (action of rightButtons; track action.key) {
+        <app-button
+          [hidden]="action.hidden"
+          [disabled]="
+            (action.disabledOnEmptyRows && selectedRows.length === 0) ||
+            (action.disabled ? action.disabled(selectedRows) : false)
+          "
+          [icon]="action.icon"
+          (onClick)="action.onClick(selectedRows)"
+          [label]="action.label"
+          [type]="action.type"
+          [ref]="ref"
+        />
+      }
+    </div>
   </div>
-</div>
+</ng-template>
 
 <!-- TABLA -->
 <nz-table
   [nzData]="data"
   [nzLoading]="ref.loading"
+  [nzPaginationType]="'small'"
   [nzFrontPagination]="false"
   [nzTotal]="total"
   [(nzPageSize)]="dataService.state.pageSize"
@@ -59,12 +58,16 @@
   [nzPageSizeOptions]="[10, 20, 50]"
   (nzPageSizeChange)="onPageSizeChange()"
   (nzPageIndexChange)="onPageSizeChange()"
+  [nzBordered]="true"
+  [nzOuterBordered]="true"
+  [nzTitle]="showToolbar ? toolbar : ''"
+  [nzFooter]="footer"
   style="width: 100%; overflow-y: auto; margin-bottom: 20px"
 >
   <thead>
     <tr>
       @if (selectableSettings?.selectable) {
-        @if (selectableSettings?.type === "multiple") {
+        @if (selectableSettings?.type === 'multiple') {
           <th
             nzShowCheckbox
             [nzChecked]="checked"
@@ -156,35 +159,15 @@
           <td [width]="50">
             @if (!editCache[editableService.getRowKey(row)].edit) {
               <div style="display: flex; justify-content: space-between">
-                <button
-                  type="button"
-                  class="btn btn-link"
-                  (click)="startEdit(row)"
-                >
-                  Editar
-                </button>
-                <button
-                  type="button"
-                  class="btn btn-link"
-                  (click)="removeEdit(row)"
-                >
+                <button type="button" class="btn btn-link" (click)="startEdit(row)">Editar</button>
+                <button type="button" class="btn btn-link" (click)="removeEdit(row)">
                   Remover
                 </button>
               </div>
             } @else {
               <div style="display: flex; justify-content: space-between">
-                <button
-                  type="button"
-                  class="btn btn-link"
-                  (click)="saveEdit(row)"
-                >
-                  Guardar
-                </button>
-                <button
-                  type="button"
-                  class="btn btn-link"
-                  (click)="cancelEdit(row)"
-                >
+                <button type="button" class="btn btn-link" (click)="saveEdit(row)">Guardar</button>
+                <button type="button" class="btn btn-link" (click)="cancelEdit(row)">
                   Cancelar
                 </button>
               </div>
@@ -197,11 +180,7 @@
           <td>
             <button
               class="btn btn-light"
-              style="
-                display: flex;
-                border-radius: 100%;
-                background-color: transparent;
-              "
+              style="display: flex; border-radius: 100%; background-color: transparent"
               [matMenuTriggerFor]="menu"
             >
               <mat-icon>menu</mat-icon>
@@ -212,9 +191,7 @@
                 @if (!action.hidden || !action.hidden(row)) {
                   <button mat-menu-item (click)="action.onClick(row)">
                     @if (action.icon) {
-                      <mat-icon style="margin-right: 8px">{{
-                        ICONS[action.icon]
-                      }}</mat-icon>
+                      <mat-icon style="margin-right: 8px">{{ ICONS[action.icon] }}</mat-icon>
                     }
                     {{ action.label }}
                   </button>
@@ -228,9 +205,7 @@
         @for (column of columns; track column.key) {
           <td style="font-size: 12px" [hidden]="column.hidden">
             @if (
-              editableService &&
-              column.editable &&
-              editCache[editableService.getRowKey(row)].edit
+              editableService && column.editable && editCache[editableService.getRowKey(row)].edit
             ) {
               @if (column.editTemplate) {
                 <ng-container
@@ -244,9 +219,7 @@
               } @else {
                 <app-form-field
                   [label]="column.title"
-                  [(ngModel)]="
-                    editCache[editableService.getRowKey(row)].data[column.key]
-                  "
+                  [(ngModel)]="editCache[editableService.getRowKey(row)].data[column.key]"
                 ></app-form-field>
               }
             } @else {
@@ -261,9 +234,7 @@
                   "
                 />
               } @else {
-                {{
-                  row[column.key] | dynamicFormat: column.type : column.format
-                }}
+                {{ row[column.key] | dynamicFormat: column.type : column.format }}
               }
             }
           </td>
@@ -271,7 +242,9 @@
       </tr>
     }
   </tbody>
-  <br />
+</nz-table>
+
+<ng-template #footer>
   @if (!hiddenRefresh) {
     <div style="width: 100%">
       <button
@@ -285,17 +258,12 @@
       </button>
     </div>
   }
-</nz-table>
+</ng-template>
 
 <nz-dropdown-menu #filterMenu="nzDropdownMenu">
   <div class="ant-table-filter-dropdown">
     <div class="search-box">
-      <input
-        type="text"
-        nz-input
-        placeholder="Search name"
-        [formControl]="searchValue"
-      />
+      <input type="text" nz-input placeholder="Search name" [formControl]="searchValue" />
       <button
         nz-button
         nzSize="small"

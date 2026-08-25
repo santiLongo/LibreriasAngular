@@ -1,4 +1,11 @@
-import { APP_INITIALIZER, ApplicationConfig, provideBrowserGlobalErrorListeners } from '@angular/core';
+import {
+  APP_INITIALIZER,
+  ApplicationConfig,
+  inject,
+  provideAppInitializer,
+  provideBrowserGlobalErrorListeners,
+} from '@angular/core';
+import { MatIconRegistry } from '@angular/material/icon';
 import { provideRouter } from '@angular/router';
 
 import { routes } from './app.routes';
@@ -10,6 +17,14 @@ export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
     provideRouter(routes),
+    // <mat-icon> usa Material Symbols en vez del set clásico: el enum ICONS
+    // tiene nombres (person_apron, assignment_add) que sólo existen ahí.
+    provideAppInitializer(() => {
+      inject(MatIconRegistry).setDefaultFontSetClass(
+        'material-symbols-outlined',
+        'mat-ligature-font',
+      );
+    }),
     { provide: COMBO_DATA_PROVIDER, useExisting: AppComboDataProvider },
     {
       provide: APP_INITIALIZER,

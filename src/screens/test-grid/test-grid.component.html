@@ -1,0 +1,211 @@
+<app-core-view title="Test Grid">
+  <div body>
+    <!-- ── Opciones ─────────────────────────────────────── -->
+    <div class="toolbar">
+      <span class="toolbar-label">Selección:</span>
+      @for (opcion of ['ninguna', 'single', 'multiple']; track opcion) {
+        <app-button
+          [label]="opcion"
+          [type]="opciones.seleccion === opcion ? 'success' : 'light'"
+          (onClick)="setSeleccion($any(opcion))"
+        ></app-button>
+      }
+
+      <span class="sep"></span>
+
+      <app-button
+        [label]="'Solo finalizadas: ' + (opciones.soloFinalizadas ? 'ON' : 'OFF')"
+        [type]="opciones.soloFinalizadas ? 'success' : 'light'"
+        (onClick)="toggle('soloFinalizadas')"
+      ></app-button>
+      <app-button
+        [label]="'Filtros: ' + (opciones.filtros ? 'ON' : 'OFF')"
+        [type]="opciones.filtros ? 'success' : 'light'"
+        (onClick)="toggle('filtros')"
+      ></app-button>
+      <app-button
+        [label]="'Sort: ' + (opciones.sort ? 'ON' : 'OFF')"
+        [type]="opciones.sort ? 'success' : 'light'"
+        (onClick)="toggle('sort')"
+      ></app-button>
+      <app-button
+        [label]="'Menú de fila: ' + (opciones.menu ? 'ON' : 'OFF')"
+        [type]="opciones.menu ? 'success' : 'light'"
+        (onClick)="toggle('menu')"
+      ></app-button>
+      <app-button
+        [label]="'Toolbar: ' + (opciones.toolbar ? 'ON' : 'OFF')"
+        [type]="opciones.toolbar ? 'success' : 'light'"
+        (onClick)="toggle('toolbar')"
+      ></app-button>
+      <app-button
+        [label]="'Ocultar destino: ' + (opciones.ocultarDestino ? 'ON' : 'OFF')"
+        [type]="opciones.ocultarDestino ? 'success' : 'light'"
+        (onClick)="toggle('ocultarDestino')"
+      ></app-button>
+      <app-button
+        [label]="'Botón refresh: ' + (opciones.hiddenRefresh ? 'OCULTO' : 'VISIBLE')"
+        [type]="opciones.hiddenRefresh ? 'success' : 'light'"
+        (onClick)="toggle('hiddenRefresh')"
+      ></app-button>
+      <app-button
+        [label]="'Demora 800ms: ' + (opciones.demora ? 'ON' : 'OFF')"
+        [type]="opciones.demora ? 'success' : 'light'"
+        (onClick)="toggle('demora')"
+      ></app-button>
+    </div>
+
+    <div class="toolbar">
+      <span class="toolbar-label">Data:</span>
+      <app-button label="Regenerar (47)" (onClick)="recargar()"></app-button>
+      <app-button label="Agregar fila" type="secondary" (onClick)="agregarFila()"></app-button>
+      <app-button label="Vaciar" type="danger" (onClick)="vaciar()"></app-button>
+      <app-button label="Reset state" type="info" (onClick)="resetEstado()"></app-button>
+      <app-button label="Log en consola" type="dark" (onClick)="loguearEnConsola()"></app-button>
+    </div>
+
+    <!-- ── Grillas + panel de estado ────────────────────── -->
+    <div class="layout">
+      <div class="grillas">
+        <section class="bloque">
+          <h3>Grilla local · LocalGridService</h3>
+          <p class="ayuda">
+            Filtro / orden / paginado los resuelve el servicio local en memoria.
+          </p>
+
+          @if (gridVisible) {
+            <app-grid
+              [dataService]="service"
+              [config]="config"
+              [isLocal]="true"
+              [hiddenRefresh]="opciones.hiddenRefresh"
+              [selectedRows]="seleccionadas"
+              (selectedRowsChange)="onSeleccionChange($event)"
+            ></app-grid>
+          } @else {
+            <p class="ayuda">Rearmando grilla…</p>
+          }
+        </section>
+
+        <section class="bloque">
+          <h3>Grilla editable · EditableGridService</h3>
+          <p class="ayuda">
+            El botón <b>+</b> agrega una fila vacía y la deja en edición. Km,
+            importe y estado usan editTemplate; el resto cae en el input por
+            defecto de la grilla.
+          </p>
+
+          <app-grid
+            [dataService]="editableService"
+            [config]="editableConfig"
+            [isLocal]="true"
+            [hiddenRefresh]="true"
+            [(selectedRows)]="seleccionadasEditable"
+          ></app-grid>
+        </section>
+      </div>
+
+      <aside class="panel">
+        <section class="card">
+          <h4>State del servicio</h4>
+          <dl>
+            <dt>page</dt>
+            <dd>{{ service.state.page }}</dd>
+            <dt>pageSize</dt>
+            <dd>{{ service.state.pageSize }}</dd>
+            <dt>total</dt>
+            <dd>{{ service.total$ | async }}</dd>
+            <dt>loading</dt>
+            <dd>{{ service.ref.loading }}</dd>
+            <dt>sort</dt>
+            <dd>
+              {{
+                service.state.sort
+                  ? service.state.sort.field + " · " + service.state.sort.direction
+                  : "—"
+              }}
+            </dd>
+          </dl>
+
+          <h5>Filtros</h5>
+          @if (filtrosActivos.length) {
+            <ul class="lista">
+              @for (filtro of filtrosActivos; track filtro[0]) {
+                <li><b>{{ filtro[0] }}</b>: {{ filtro[1] }}</li>
+              }
+            </ul>
+          } @else {
+            <p class="vacio">Sin filtros</p>
+          }
+        </section>
+
+        <section class="card">
+          <h4>Seleccionadas ({{ seleccionadas.length }})</h4>
+          @if (seleccionadas.length) {
+            <ul class="lista">
+              @for (row of seleccionadas; track row.id) {
+                <li>{{ row.numero }} · {{ row.chofer }}</li>
+              }
+            </ul>
+          } @else {
+            <p class="vacio">Ninguna fila seleccionada</p>
+          }
+        </section>
+
+        <section class="card">
+          <div class="card-header">
+            <h4>Eventos</h4>
+            <app-button label="Limpiar" type="light" (onClick)="limpiarEventos()"></app-button>
+          </div>
+          @if (eventos.length) {
+            <ul class="lista log">
+              @for (evento of eventos; track $index) {
+                <li>{{ evento }}</li>
+              }
+            </ul>
+          } @else {
+            <p class="vacio">Todavía no pasó nada</p>
+          }
+        </section>
+      </aside>
+    </div>
+  </div>
+</app-core-view>
+
+<!-- ── Templates de columna ─────────────────────────────── -->
+<ng-template #estadoTpl let-fila>
+  @if (fila?.estado) {
+    <span [class]="claseEstado(fila.estado)">{{ fila.estado }}</span>
+  }
+</ng-template>
+
+<ng-template #facturadoTpl let-fila>
+  <span [class]="fila?.facturado ? 'chip chip-ok' : 'chip chip-warn'">
+    {{ fila?.facturado ? "Sí" : "No" }}
+  </span>
+</ng-template>
+
+<ng-template #rutaTpl let-fila>
+  <span class="ruta">{{ fila?.origen }} → {{ fila?.destino }}</span>
+</ng-template>
+
+<!-- ── Templates de edición (reciben la copia del editCache) ── -->
+<ng-template #kmEditTpl let-fila>
+  <app-number-form-field label="Km" [(ngModel)]="fila.kilometros"></app-number-form-field>
+</ng-template>
+
+<ng-template #importeEditTpl let-fila>
+  <app-decimal-form-field
+    label="Importe"
+    [(ngModel)]="fila.importe"
+  ></app-decimal-form-field>
+</ng-template>
+
+<ng-template #estadoEditTpl let-fila>
+  <app-combo
+    label="Estado"
+    [isLocal]="true"
+    [data]="estadosCombo"
+    [(ngModel)]="fila.estado"
+  ></app-combo>
+</ng-template>
