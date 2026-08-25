@@ -8,7 +8,7 @@ import {
 } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
-import { DialogSize } from '../../../../dist/lib-servicios/types/lib-servicios';
+import { DialogSize } from 'lib-servicios';
 
 export interface EditarUsuarioData {
   size: DialogSize;

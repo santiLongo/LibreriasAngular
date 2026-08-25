@@ -1,0 +1,320 @@
+<app-core-view title="Test Form Fields">
+  <div body>
+    <div class="toolbar">
+      <app-button label="Cargar valores" (onClick)="cargarValores()"></app-button>
+      <app-button label="Limpiar" type="secondary" (onClick)="limpiar()"></app-button>
+      <app-button label="Marcar touched" type="info" (onClick)="marcarTouched()"></app-button>
+      <app-button
+        [label]="readonly ? 'Readonly: ON' : 'Readonly: OFF'"
+        [type]="readonly ? 'success' : 'light'"
+        (onClick)="toggleReadonly()"
+      ></app-button>
+      <app-button
+        [label]="form.disabled ? 'Disabled: ON' : 'Disabled: OFF'"
+        [type]="form.disabled ? 'success' : 'light'"
+        (onClick)="toggleDisabled()"
+      ></app-button>
+      <app-button
+        [label]="validando ? 'Validaciones: ON' : 'Validaciones: OFF'"
+        [type]="validando ? 'success' : 'light'"
+        (onClick)="toggleValidaciones()"
+      ></app-button>
+      <app-button label="Log en consola" type="dark" (onClick)="loguear()"></app-button>
+    </div>
+
+    <div class="layout" [formGroup]="form">
+      <div class="fields">
+        <!-- ── Inputs de texto ─────────────────────────────── -->
+        <section class="grupo">
+          <h3>Texto</h3>
+          <div class="grid">
+            <div class="campo">
+              <span class="selector">app-form-field</span>
+              <app-form-field
+                label="Texto libre"
+                formControlName="texto"
+                [readonly]="readonly"
+              ></app-form-field>
+              <small>required · minLength(3) · maxLength(20)</small>
+            </div>
+
+            <div class="campo">
+              <span class="selector">app-form-field</span>
+              <app-form-field
+                label="Email"
+                formControlName="email"
+                [readonly]="readonly"
+              ></app-form-field>
+              <small>required · email</small>
+            </div>
+
+            <div class="campo ancho">
+              <span class="selector">app-textarea-form-field</span>
+              <app-textarea-form-field
+                label="Observaciones"
+                formControlName="textarea"
+                [readonly]="readonly"
+              ></app-textarea-form-field>
+              <small>required · maxLength(50)</small>
+            </div>
+          </div>
+        </section>
+
+        <!-- ── Numéricos ───────────────────────────────────── -->
+        <section class="grupo">
+          <h3>Numéricos</h3>
+          <div class="grid">
+            <div class="campo">
+              <span class="selector">app-number-form-field</span>
+              <app-number-form-field
+                label="Número entero"
+                formControlName="numero"
+                [readonly]="readonly"
+              ></app-number-form-field>
+              <small>required · min(10) · max(100000) · separador de miles</small>
+            </div>
+
+            <div class="campo">
+              <span class="selector">app-decimal-form-field</span>
+              <app-decimal-form-field
+                label="Importe (2 decimales)"
+                formControlName="decimal"
+                [readonly]="readonly"
+              ></app-decimal-form-field>
+              <small>required · decimals por defecto = 2</small>
+            </div>
+
+            <div class="campo">
+              <span class="selector">app-decimal-form-field</span>
+              <app-decimal-form-field
+                label="Coeficiente (4 decimales)"
+                formControlName="decimal4"
+                [decimals]="4"
+                [readonly]="readonly"
+              ></app-decimal-form-field>
+              <small>required · [decimals]="4"</small>
+            </div>
+          </div>
+        </section>
+
+        <!-- ── Fecha y máscaras ────────────────────────────── -->
+        <section class="grupo">
+          <h3>Fecha y máscaras</h3>
+          <div class="grid">
+            <div class="campo">
+              <span class="selector">app-date-form-field</span>
+              <app-date-form-field
+                label="Fecha"
+                formControlName="fecha"
+                [readonly]="readonly"
+              ></app-date-form-field>
+              <small>required · devuelve Date</small>
+            </div>
+
+            <div class="campo">
+              <span class="selector">app-viaje-mask</span>
+              <app-viaje-mask
+                label="Viaje"
+                formControlName="viaje"
+                [readonly]="readonly"
+              ></app-viaje-mask>
+              <small>required · máscara V-{{ '{' }}NNNNNNNN{{ '}' }}</small>
+            </div>
+
+            <div class="campo">
+              <span class="selector">app-cuit-mask</span>
+              <app-cuit-mask
+                label="CUIT"
+                formControlName="cuit"
+                [readonly]="readonly"
+              ></app-cuit-mask>
+              <small>required · máscara 00-00000000-0 · devuelve sólo dígitos</small>
+            </div>
+          </div>
+        </section>
+
+        <!-- ── Combos ──────────────────────────────────────── -->
+        <section class="grupo">
+          <h3>Combos</h3>
+          <div class="grid">
+            <div class="campo">
+              <span class="selector">app-combo · isLocal</span>
+              <app-combo
+                label="Moneda"
+                formControlName="comboLocal"
+                [isLocal]="true"
+                [data]="monedas"
+                [readonly]="readonly"
+              ></app-combo>
+              <small>data local, sin provider</small>
+            </div>
+
+            <div class="campo">
+              <span class="selector">app-combo · remoto</span>
+              <app-combo
+                label="Provincia"
+                formControlName="comboRemoto"
+                type="provincias"
+                [readonly]="readonly"
+              ></app-combo>
+              <small>carga por COMBO_DATA_PROVIDER (mock, 400ms)</small>
+            </div>
+
+            <div class="campo">
+              <span class="selector">app-combo · extraParams</span>
+              <app-combo
+                label="Localidad"
+                formControlName="comboDependiente"
+                type="localidades"
+                [extraParams]="paramsDependiente"
+                [readonly]="readonly"
+              ></app-combo>
+              <small>depende de Provincia · recarga por ngOnChanges</small>
+            </div>
+
+            <div class="campo">
+              <span class="selector">app-combo · remoto</span>
+              <app-combo
+                label="Estado"
+                formControlName="comboEstado"
+                type="estados"
+                [readonly]="readonly"
+              ></app-combo>
+              <small>numero como string</small>
+            </div>
+
+            <div class="campo">
+              <span class="selector">app-multiple-combo · isLocal</span>
+              <app-multiple-combo
+                label="Tags"
+                formControlName="multipleLocal"
+                [isLocal]="true"
+                [data]="tags"
+                [readonly]="readonly"
+              ></app-multiple-combo>
+              <small>multiselección con buscador</small>
+            </div>
+
+            <div class="campo">
+              <span class="selector">app-multiple-combo · remoto</span>
+              <app-multiple-combo
+                label="Provincias"
+                formControlName="multipleRemoto"
+                type="provincias"
+                [readonly]="readonly"
+              ></app-multiple-combo>
+              <small>multiselección contra el provider</small>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- ── Panel de estado ───────────────────────────────── -->
+      <aside class="panel">
+        <div class="panel-box">
+          <h3>Patch manual</h3>
+
+          <div class="patch-campo">
+            <select [value]="campoElegido" (change)="campoElegido = $any($event.target).value">
+              @for (f of fields; track f.key) {
+                <option [value]="f.key">{{ f.key }}</option>
+              }
+            </select>
+            <input
+              type="text"
+              placeholder="valor (JSON o texto)"
+              [value]="valorElegido"
+              (input)="valorElegido = $any($event.target).value"
+              (keyup.enter)="aplicarPatchCampo()"
+            />
+            <app-button label="Patch" (onClick)="aplicarPatchCampo()"></app-button>
+          </div>
+
+          <textarea
+            class="patch-json"
+            spellcheck="false"
+            rows="10"
+            [value]="patchJson"
+            (input)="patchJson = $any($event.target).value"
+          ></textarea>
+
+          @if (patchError) {
+            <p class="patch-error">{{ patchError }}</p>
+          } @else {
+            <p class="patch-help">
+              Objeto <code>{{ '{' }} control: valor {{ '}' }}</code>. Las fechas van como
+              <code>"2026-08-24"</code>. Las claves que no existan se ignoran.
+            </p>
+          }
+
+          <div class="patch-acciones">
+            <app-button label="patchValue" (onClick)="aplicarPatch()"></app-button>
+            <app-button label="reset + patch" type="secondary" (onClick)="aplicarReset()"></app-button>
+            <app-button label="Traer valor actual" type="light" (onClick)="traerValorActual()"></app-button>
+          </div>
+        </div>
+
+        <div class="panel-box">
+          <h3>Form</h3>
+          <div class="badges">
+            <span class="badge" [class.ok]="form.valid" [class.error]="form.invalid">
+              {{ form.status }}
+            </span>
+            <span class="badge" [class.ok]="form.dirty">dirty: {{ form.dirty }}</span>
+            <span class="badge" [class.ok]="form.touched">touched: {{ form.touched }}</span>
+          </div>
+        </div>
+
+        <div class="panel-box">
+          <h3>Valores</h3>
+          <table class="tabla">
+            <thead>
+              <tr>
+                <th>Control</th>
+                <th>Valor</th>
+                <th>Tipo</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (f of fields; track f.key) {
+                @let e = estado(f.key);
+                <tr [class.invalido]="e && !e.valid">
+                  <td>
+                    <strong>{{ f.key }}</strong>
+                    <em>{{ f.selector }}</em>
+                  </td>
+                  <td class="valor">{{ e?.value | json }}</td>
+                  <td class="tipo">{{ tipoDe(e?.value) }}</td>
+                  <td class="flags">
+                    @if (e?.touched) { <span title="touched">T</span> }
+                    @if (e?.dirty) { <span title="dirty">D</span> }
+                    @if (e && !e.valid) { <span class="ko" title="inválido">✕</span> }
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+
+        <div class="panel-box">
+          <h3>Errores</h3>
+          <pre>{{ errores() | json }}</pre>
+        </div>
+
+        <div class="panel-box">
+          <h3>Llamadas al provider</h3>
+          @if (mockProvider.llamadas.length === 0) {
+            <p class="vacio">Todavía no se pidió ningún combo.</p>
+          } @else {
+            <ul class="llamadas">
+              @for (l of mockProvider.llamadas; track $index) {
+                <li>{{ l }}</li>
+              }
+            </ul>
+          }
+        </div>
+      </aside>
+    </div>
+  </div>
+</app-core-view>

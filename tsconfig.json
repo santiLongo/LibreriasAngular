@@ -7,8 +7,8 @@
     "noImplicitOverride": true,
     "noPropertyAccessFromIndexSignature": true,
     "paths": {
-      "lib-components": ["./dist/lib-components"],
-      "lib-servicios": ["./dist/lib-servicios"]
+      "lib-components": ["./projects/lib-components/src/public-api.ts"],
+      "lib-servicios": ["./projects/lib-servicios/src/public-api.ts"]
     },
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
