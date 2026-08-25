@@ -1,28 +1,33 @@
 import { CommonModule } from '@angular/common';
 import {
+  AfterViewInit,
+  ChangeDetectorRef,
   Component,
+  DoCheck,
+  ElementRef,
   forwardRef,
   Input,
-  ViewChild,
-  ElementRef,
+  OnDestroy,
   Optional,
   Self,
+  ViewChild,
 } from '@angular/core';
 import {
-  NG_VALUE_ACCESSOR,
   ControlValueAccessor,
-  FormsModule,
-  ReactiveFormsModule,
-  NgControl,
   FormControl,
+  FormsModule,
+  NG_VALUE_ACCESSOR,
+  NgControl,
+  ReactiveFormsModule,
 } from '@angular/forms';
-import { MatNativeDateModule } from '@angular/material/core';
+import { ErrorStateMatcher, MatNativeDateModule } from '@angular/material/core';
 import { MatDatepickerModule } from '@angular/material/datepicker';
-import { MatError, MatFormFieldModule } from '@angular/material/form-field';
+import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
-import { MatInputModule } from '@angular/material/input';
+import { MatInput, MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { IMaskModule } from 'angular-imask';
+import { BehaviorSubject, distinctUntilChanged, Subscription } from 'rxjs';
 
 @Component({
   standalone: true,
@@ -45,36 +50,87 @@ import { IMaskModule } from 'angular-imask';
     MatIconModule,
     MatNativeDateModule,
     MatDatepickerModule,
-    IMaskModule
+    IMaskModule,
   ],
 })
-export class NumberFormFieldComponent implements ControlValueAccessor {
-  @Input({ required: true }) label!: string;
-  @Input() readonly = false;
-
+export class NumberFormFieldComponent
+  implements ControlValueAccessor, AfterViewInit, DoCheck, OnDestroy
+{
   @ViewChild('input', { static: true })
   inputRef!: ElementRef<HTMLInputElement>;
+
+  @ViewChild(MatInput, { static: true })
+  matInput!: MatInput;
+
+  @Input({ required: true }) label!: string;
+  @Input() readonly = false;
 
   value: number | null = null;
   disabled = false;
 
+  /**
+   * El input no tiene su propio formControl, así que Material nunca lo marca
+   * en error por las suyas. Con este matcher le decimos cuándo está en error
+   * mirando el control del CVA.
+   */
+  readonly errorStateMatcher: ErrorStateMatcher = {
+    isErrorState: () => this.showError,
+  };
+
   private onChange = (_: any) => {};
   private onTouched = () => {};
 
-  constructor(@Self() @Optional() public ngControl: NgControl) {
+  private subscriptions = new Subscription();
+
+  private readonly touchedSubject = new BehaviorSubject<boolean>(false);
+
+  readonly touched$ = this.touchedSubject.asObservable().pipe(distinctUntilChanged());
+
+  constructor(
+    @Self() @Optional() public ngControl: NgControl,
+    private changeDetectorRef: ChangeDetectorRef,
+  ) {
     if (this.ngControl) {
       this.ngControl.valueAccessor = this;
     }
   }
 
-  writeValue(value: number | null): void {
-    this.value = value;
+  ngAfterViewInit(): void {
+    // Si el valor llegó por writeValue antes de que existiera el input,
+    // recién acá lo podemos mostrar formateado.
+    this.pintarValor(this.value);
 
-    if (value === null) {
-      this.inputRef.nativeElement.value = '';
-    } else {
-      this.inputRef.nativeElement.value = this.format(value);
+    const control = this.ngControl?.control;
+    if (control) {
+      this.subscriptions.add(
+        control.statusChanges.subscribe(() => this.matInput?.updateErrorState()),
+      );
+      this.subscriptions.add(
+        this.touched$.subscribe(() => {
+          this.matInput?.updateErrorState();
+        }),
+      );
+      this.matInput?.updateErrorState();
     }
+
+    this.changeDetectorRef.detectChanges();
+  }
+
+  ngDoCheck(): void {
+    const touched = !!this.ngControl?.control?.touched;
+
+    if (touched !== this.touchedSubject.value) {
+      this.touchedSubject.next(touched);
+    }
+  }
+
+  ngOnDestroy(): void {
+    this.subscriptions.unsubscribe();
+  }
+
+  writeValue(value: number | null): void {
+    this.value = this.normalizar(value);
+    this.pintarValor(this.value);
   }
 
   registerOnChange(fn: any): void {
@@ -92,19 +148,10 @@ export class NumberFormFieldComponent implements ControlValueAccessor {
   onInput(raw: string): void {
     const digits = raw.replace(/\D/g, '');
 
-    if (!digits) {
-      this.value = null;
-      this.onChange(null);
-      this.inputRef.nativeElement.value = '';
-      return;
-    }
+    this.value = digits ? Number(digits) : null;
+    this.onChange(this.value);
 
-    const parsed = Number(digits);
-
-    this.value = parsed;
-    this.onChange(parsed);
-
-    this.inputRef.nativeElement.value = this.format(parsed);
+    this.pintarValor(this.value);
   }
 
   onBlur(): void {
@@ -113,21 +160,45 @@ export class NumberFormFieldComponent implements ControlValueAccessor {
 
   clear(): void {
     this.value = null;
+    this.pintarValor(null);
     this.onChange(null);
     this.onTouched();
     queueMicrotask(() => this.inputRef?.nativeElement.focus());
+  }
+
+  /**
+   * El valor del input lo manejamos a mano (no por binding) porque lo que se
+   * muestra es el número formateado y no el valor crudo del control.
+   */
+  private pintarValor(value: number | null): void {
+    const input = this.inputRef?.nativeElement;
+    if (!input) return;
+
+    input.value = value === null ? '' : this.format(value);
   }
 
   private format(value: number): string {
     return value.toLocaleString('es-AR');
   }
 
-  get control() {
-    return this.ngControl?.control as FormControl;
+  private normalizar(value: number | string | null | undefined): number | null {
+    if (value === null || value === undefined || value === '') return null;
+
+    const parsed = Number(value);
+    return Number.isNaN(parsed) ? null : parsed;
+  }
+
+  get hasValue(): boolean {
+    return this.value !== null;
+  }
+
+  get control(): FormControl | null {
+    return (this.ngControl?.control as FormControl) ?? null;
   }
 
   get showError(): boolean {
-    return !!this.control && this.control.invalid && this.control.touched;
+    const control = this.control;
+    return !!control && control.invalid && (control.touched || control.dirty);
   }
 
   get errorMessage(): string | null {
@@ -140,10 +211,8 @@ export class NumberFormFieldComponent implements ControlValueAccessor {
       return `Máximo ${errors['maxlength'].requiredLength} caracteres`;
     if (errors['minlength'])
       return `Mínimo ${errors['minlength'].requiredLength} caracteres`;
-    if (errors['max'])
-      return `Máximo ${errors['max'].max}`;
-    if (errors['min'])
-      return `Mínimo ${errors['min'].min}`;
+    if (errors['max']) return `Máximo ${errors['max'].max}`;
+    if (errors['min']) return `Mínimo ${errors['min'].min}`;
 
     return 'Valor inválido';
   }

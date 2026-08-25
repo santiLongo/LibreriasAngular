@@ -54,6 +54,6 @@ export class MockComboDataProvider implements IComboDataProvider {
       items = items.filter((x) => x.padre === extraParams.padre);
     }
 
-    return of(items).pipe(delay(400));
+    return of(items);
   }
 }

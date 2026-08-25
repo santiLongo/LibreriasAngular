@@ -3,23 +3,23 @@
 
   @if (!readonly) {
     <mat-select
+      multiple
       [value]="value"
       [disabled]="disabled"
       [compareWith]="compareByNumero"
+      [errorStateMatcher]="errorStateMatcher"
       (selectionChange)="onSelectionChange($event.value)"
-      [formControl]="control"
-      multiple
     >
       <mat-option disabled>
         <input
           matInput
           placeholder="Buscar..."
-          (input)="onSearchChange($event.target.value)"
+          (input)="onSearchChange($any($event.target).value)"
           (click)="$event.stopPropagation()"
         />
       </mat-option>
 
-      @for (item of data$ | async; track item.numero) {
+      @for (item of filteredData$ | async; track item.numero) {
         <mat-option [value]="item.numero">
           {{ item.descripcion }}
         </mat-option>
@@ -28,10 +28,16 @@
   } @else {
     @let items = data$ | async;
 
-    <input matInput [value]="getDescripcion(items)" readonly />
+    <input
+      #readonlyInput
+      matInput
+      readonly
+      [value]="getDescripcion(items)"
+      [errorStateMatcher]="errorStateMatcher"
+    />
   }
 
-  @if (value && !readonly) {
+  @if (hasValue && !readonly && !disabled) {
     <button
       matSuffix
       mat-icon-button

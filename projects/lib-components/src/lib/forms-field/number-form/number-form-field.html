@@ -1,24 +1,19 @@
-<mat-form-field
-  appearance="fill"
-  style="width: 100%"
->
+<mat-form-field appearance="fill" style="width: 100%">
   <mat-label>{{ label }}</mat-label>
 
   <input
     #input
     matInput
     type="text"
-    pattern="[0-9]+"
     inputmode="numeric"
-    [value]="value ?? ''"
     [readonly]="readonly"
     [disabled]="disabled"
-    [formControl]="control"
+    [errorStateMatcher]="errorStateMatcher"
     (input)="onInput($any($event.target).value)"
     (blur)="onBlur()"
   />
 
-  @if (value && !readonly) {
+  @if (hasValue && !readonly && !disabled) {
     <button
       matSuffix
       mat-icon-button

@@ -1,9 +1,13 @@
 import { CommonModule } from '@angular/common';
 import {
+  AfterViewInit,
+  ChangeDetectorRef,
   Component,
+  DoCheck,
   ElementRef,
   forwardRef,
   Input,
+  OnDestroy,
   Optional,
   Self,
   ViewChild,
@@ -11,20 +15,19 @@ import {
 import {
   ControlValueAccessor,
   FormControl,
-  FormGroupDirective,
   FormsModule,
   NG_VALUE_ACCESSOR,
   NgControl,
-  NgForm,
   ReactiveFormsModule,
 } from '@angular/forms';
 import { ErrorStateMatcher, MatNativeDateModule } from '@angular/material/core';
 import { MatDatepickerModule } from '@angular/material/datepicker';
-import { MatError, MatFormFieldModule } from '@angular/material/form-field';
+import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
-import { MatInputModule } from '@angular/material/input';
+import { MatInput, MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { IMaskModule } from 'angular-imask';
+import { BehaviorSubject, distinctUntilChanged, Subscription } from 'rxjs';
 
 @Component({
   standalone: true,
@@ -47,32 +50,82 @@ import { IMaskModule } from 'angular-imask';
     MatIconModule,
     MatNativeDateModule,
     MatDatepickerModule,
-    IMaskModule
+    IMaskModule,
   ],
 })
-export class FormFieldComponent implements ControlValueAccessor {
-  @Input({ required: true }) label!: string;
-  @Input() readonly = false;
-
+export class FormFieldComponent
+  implements ControlValueAccessor, AfterViewInit, DoCheck, OnDestroy
+{
   @ViewChild('input', { static: true })
   inputRef!: ElementRef<HTMLInputElement>;
+
+  @ViewChild(MatInput, { static: true })
+  matInput!: MatInput;
+
+  @Input({ required: true }) label!: string;
+  @Input() readonly = false;
 
   value: string | null = null;
   disabled = false;
 
+  /**
+   * El input no tiene su propio formControl, así que Material nunca lo marca
+   * en error por las suyas. Con este matcher le decimos cuándo está en error
+   * mirando el control del CVA.
+   */
+  readonly errorStateMatcher: ErrorStateMatcher = {
+    isErrorState: () => this.showError,
+  };
+
   private onChange = (_: any) => {};
   private onTouched = () => {};
 
-  constructor(@Self() @Optional() public ngControl: NgControl) {
+  private subscriptions = new Subscription();
+
+  private readonly touchedSubject = new BehaviorSubject<boolean>(false);
+
+  readonly touched$ = this.touchedSubject.asObservable().pipe(distinctUntilChanged());
+
+  constructor(
+    @Self() @Optional() public ngControl: NgControl,
+    private changeDetectorRef: ChangeDetectorRef,
+  ) {
     if (this.ngControl) {
       this.ngControl.valueAccessor = this;
     }
   }
 
-  writeValue(value: string | null): void {
-    if(!value) return;
+  ngAfterViewInit(): void {
+    const control = this.ngControl?.control;
+    if (control) {
+      this.subscriptions.add(
+        control.statusChanges.subscribe(() => this.matInput?.updateErrorState()),
+      );
+      this.subscriptions.add(
+        this.touched$.subscribe(() => {
+          this.matInput?.updateErrorState();
+        }),
+      );
+      this.matInput?.updateErrorState();
+    }
 
-    this.value = value;
+    this.changeDetectorRef.detectChanges();
+  }
+
+  ngDoCheck(): void {
+    const touched = !!this.ngControl?.control?.touched;
+
+    if (touched !== this.touchedSubject.value) {
+      this.touchedSubject.next(touched);
+    }
+  }
+
+  ngOnDestroy(): void {
+    this.subscriptions.unsubscribe();
+  }
+
+  writeValue(value: string | null): void {
+    this.value = value ?? null;
   }
 
   registerOnChange(fn: any): void {
@@ -88,8 +141,8 @@ export class FormFieldComponent implements ControlValueAccessor {
   }
 
   onInput(value: string): void {
-    this.value = value;
-    this.onChange(value);
+    this.value = value === '' ? null : value;
+    this.onChange(this.value);
   }
 
   onBlur(): void {
@@ -103,12 +156,17 @@ export class FormFieldComponent implements ControlValueAccessor {
     queueMicrotask(() => this.inputRef?.nativeElement.focus());
   }
 
-  get control() {
-    return this.ngControl?.control as FormControl;
+  get hasValue(): boolean {
+    return this.value !== null && this.value !== '';
+  }
+
+  get control(): FormControl | null {
+    return (this.ngControl?.control as FormControl) ?? null;
   }
 
   get showError(): boolean {
-    return !!this.control && this.control.invalid && this.control.touched;
+    const control = this.control;
+    return !!control && control.invalid && (control.touched || control.dirty);
   }
 
   get errorMessage(): string | null {
@@ -121,12 +179,8 @@ export class FormFieldComponent implements ControlValueAccessor {
       return `Máximo ${errors['maxlength'].requiredLength} caracteres`;
     if (errors['minlength'])
       return `Mínimo ${errors['minlength'].requiredLength} caracteres`;
-    if (errors['max'])
-      return `Máximo ${errors['max'].requiredLength}`;
-    if (errors['min'])
-      return `Mínimo ${errors['min'].requiredLength}`;
-
-
+    if (errors['max']) return `Máximo ${errors['max'].max}`;
+    if (errors['min']) return `Mínimo ${errors['min'].min}`;
 
     return 'Valor inválido';
   }

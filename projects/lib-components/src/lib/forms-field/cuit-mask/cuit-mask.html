@@ -3,17 +3,19 @@
 
   <input
     #input
-    #imask="imask"
     matInput
     type="text"
+    inputmode="numeric"
+    [imask]="maskOptions"
+    [unmask]="true"
     [readonly]="readonly"
     [disabled]="disabled"
-    [imask]="mask"
+    [errorStateMatcher]="errorStateMatcher"
     (accept)="onAccept($event)"
     (blur)="onBlur()"
   />
 
- @if (value && !readonly) {
+  @if (hasValue && !readonly && !disabled) {
     <button
       matSuffix
       mat-icon-button

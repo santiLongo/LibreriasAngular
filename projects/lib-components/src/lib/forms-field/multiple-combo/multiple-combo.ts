@@ -1,14 +1,19 @@
+import { CommonModule } from '@angular/common';
 import {
+  AfterViewInit,
+  ChangeDetectorRef,
   Component,
-  Input,
+  DoCheck,
   forwardRef,
-  OnInit,
-  ViewChild,
-  SimpleChanges,
+  Inject,
+  Input,
   OnChanges,
+  OnDestroy,
+  OnInit,
   Optional,
   Self,
-  Inject,
+  SimpleChanges,
+  ViewChild,
 } from '@angular/core';
 import {
   ControlValueAccessor,
@@ -18,17 +23,26 @@ import {
   NgControl,
   ReactiveFormsModule,
 } from '@angular/forms';
-import { map, Observable, of } from 'rxjs';
-import { ComboType } from './models/combo-type';
-import { COMBO_DATA_PROVIDER, IComboDataProvider } from '../combo/services/combo-http.service';
-import { CommonModule } from '@angular/common';
-import { MatNativeDateModule } from '@angular/material/core';
+import { ErrorStateMatcher, MatNativeDateModule } from '@angular/material/core';
 import { MatDatepickerModule } from '@angular/material/datepicker';
-import { MatError, MatFormFieldModule } from '@angular/material/form-field';
+import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
-import { MatInputModule } from '@angular/material/input';
+import { MatInput, MatInputModule } from '@angular/material/input';
 import { MatSelect, MatSelectModule } from '@angular/material/select';
 import { IMaskModule } from 'angular-imask';
+import {
+  BehaviorSubject,
+  distinctUntilChanged,
+  map,
+  Observable,
+  of,
+  Subscription,
+} from 'rxjs';
+import {
+  COMBO_DATA_PROVIDER,
+  IComboDataProvider,
+} from '../combo/services/combo-http.service';
+import { ComboType } from './models/combo-type';
 
 @Component({
   standalone: true,
@@ -51,13 +65,23 @@ import { IMaskModule } from 'angular-imask';
     MatIconModule,
     MatNativeDateModule,
     MatDatepickerModule,
-    IMaskModule
+    IMaskModule,
   ],
 })
 export class MultipleComboComponent
-  implements ControlValueAccessor, OnInit, OnChanges
+  implements
+    ControlValueAccessor,
+    OnInit,
+    OnChanges,
+    AfterViewInit,
+    DoCheck,
+    OnDestroy
 {
   @ViewChild(MatSelect) matSelect!: MatSelect;
+
+  /** Sólo existe cuando el combo está en readonly */
+  @ViewChild('readonlyInput', { read: MatInput }) readonlyInput?: MatInput;
+
   @Input({ required: true }) label!: string;
   @Input() type = '';
   @Input() isLocal = false;
@@ -68,18 +92,32 @@ export class MultipleComboComponent
   data$!: Observable<ComboType[]>;
 
   value: (string | number)[] = [];
-  disabled = this.readonly;
+  disabled = false;
 
   search = '';
   filteredData$!: Observable<ComboType[]>;
 
-  private pendingValue: any[] = [];
+  /**
+   * Ni el mat-select ni el input tienen su propio formControl, así que Material
+   * nunca los marca en error por las suyas. Con este matcher le decimos cuándo
+   * están en error mirando el control del CVA.
+   */
+  readonly errorStateMatcher: ErrorStateMatcher = {
+    isErrorState: () => this.showError,
+  };
 
   private onChange = (_: any) => {};
   private onTouched = () => {};
 
+  private subscriptions = new Subscription();
+
+  private readonly touchedSubject = new BehaviorSubject<boolean>(false);
+
+  readonly touched$ = this.touchedSubject.asObservable().pipe(distinctUntilChanged());
+
   constructor(
     @Inject(COMBO_DATA_PROVIDER) private dataProvider: IComboDataProvider,
+    private changeDetectorRef: ChangeDetectorRef,
     @Self() @Optional() public ngControl: NgControl,
   ) {
     if (this.ngControl) {
@@ -89,24 +127,53 @@ export class MultipleComboComponent
 
   ngOnInit(): void {
     this.loadData();
-
-    this.filteredData$ = this.data$.pipe(
-      map((items) =>
-        items.filter((x) =>
-          x.descripcion.toLowerCase().includes(this.search.toLowerCase()),
-        ),
-      ),
-    );
+    this.aplicarFiltro(this.search);
   }
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['extraParams'] && !changes['extraParams'].firstChange) {
       this.loadData();
+      this.aplicarFiltro(this.search);
     }
 
     if (changes['type'] && !changes['type'].firstChange) {
       this.loadData();
+      this.aplicarFiltro(this.search);
     }
+  }
+
+  ngAfterViewInit(): void {
+    const control = this.ngControl?.control;
+    if (control) {
+      this.subscriptions.add(
+        control.statusChanges.subscribe(() => this.refreshErrorState()),
+      );
+      this.subscriptions.add(
+        this.touched$.subscribe(() => {
+          this.refreshErrorState();
+        }),
+      );
+      this.refreshErrorState();
+    }
+
+    this.changeDetectorRef.detectChanges();
+  }
+
+  ngDoCheck(): void {
+    const touched = !!this.ngControl?.control?.touched;
+
+    if (touched !== this.touchedSubject.value) {
+      this.touchedSubject.next(touched);
+    }
+  }
+
+  ngOnDestroy(): void {
+    this.subscriptions.unsubscribe();
+  }
+
+  private refreshErrorState(): void {
+    this.matSelect?.updateErrorState();
+    this.readonlyInput?.updateErrorState();
   }
 
   private loadData() {
@@ -119,9 +186,7 @@ export class MultipleComboComponent
     this.value = value ?? [];
 
     queueMicrotask(() => {
-      if (this.matSelect) {
-        this.matSelect.writeValue(this.value);
-      }
+      this.matSelect?.writeValue(this.value);
     });
   }
 
@@ -138,13 +203,14 @@ export class MultipleComboComponent
   }
 
   onSelectionChange(value: any): void {
-    this.value = value;
-    this.onChange(value);
+    this.value = value ?? [];
+    this.onChange(this.value);
     this.onTouched();
   }
 
   clear(): void {
     this.onSelectionChange([]);
+    this.matSelect?.writeValue([]);
   }
 
   trackByNumero = (_: number, item: ComboType) => item.numero;
@@ -153,10 +219,14 @@ export class MultipleComboComponent
 
   onSearchChange(value: string) {
     this.search = value;
+    this.aplicarFiltro(value);
+  }
+
+  private aplicarFiltro(search: string) {
     this.filteredData$ = this.data$.pipe(
       map((items) =>
         items.filter((x) =>
-          x.descripcion.toLowerCase().includes(value.toLowerCase()),
+          x.descripcion.toLowerCase().includes(search.toLowerCase()),
         ),
       ),
     );
@@ -170,12 +240,17 @@ export class MultipleComboComponent
     return seleccionados.map((x) => x.descripcion).join(', ');
   }
 
-  get control() {
-    return this.ngControl?.control as FormControl;
+  get hasValue(): boolean {
+    return this.value.length > 0;
+  }
+
+  get control(): FormControl | null {
+    return (this.ngControl?.control as FormControl) ?? null;
   }
 
   get showError(): boolean {
-    return !!this.control && this.control.invalid && this.control.touched;
+    const control = this.control;
+    return !!control && control.invalid && (control.touched || control.dirty);
   }
 
   get errorMessage(): string | null {
@@ -183,16 +258,8 @@ export class MultipleComboComponent
     if (!errors) return null;
 
     if (errors['required']) return `${this.label} es obligatorio`;
-    if (errors['email']) return `Formato inválido`;
-    if (errors['maxlength'])
-      return `Máximo ${errors['maxlength'].requiredLength} caracteres`;
-    if (errors['minlength'])
-      return `Mínimo ${errors['minlength'].requiredLength} caracteres`;
-    if (errors['max'])
-      return `Máximo ${errors['max'].requiredLength}`;
-    if (errors['min'])
-      return `Mínimo ${errors['min'].requiredLength}`;
-
+    if (errors['max']) return `Máximo ${errors['max'].max}`;
+    if (errors['min']) return `Mínimo ${errors['min'].min}`;
 
     return 'Valor inválido';
   }

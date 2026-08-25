@@ -1,15 +1,18 @@
+import { CommonModule } from '@angular/common';
 import {
+  AfterViewInit,
+  ChangeDetectorRef,
   Component,
-  Input,
+  DoCheck,
   forwardRef,
-  OnInit,
-  ViewChild,
+  Inject,
+  Input,
   OnChanges,
-  SimpleChanges,
+  OnDestroy,
   Optional,
   Self,
-  NgZone,
-  Inject,
+  SimpleChanges,
+  ViewChild,
 } from '@angular/core';
 import {
   ControlValueAccessor,
@@ -19,17 +22,26 @@ import {
   NgControl,
   ReactiveFormsModule,
 } from '@angular/forms';
-import { Observable, of, take } from 'rxjs';
-import { ComboType } from './models/combo-type';
-import { COMBO_DATA_PROVIDER, IComboDataProvider } from './services/combo-http.service';
-import { CommonModule } from '@angular/common';
-import { MatNativeDateModule } from '@angular/material/core';
+import { ErrorStateMatcher, MatNativeDateModule } from '@angular/material/core';
 import { MatDatepickerModule } from '@angular/material/datepicker';
-import { MatError, MatFormFieldModule } from '@angular/material/form-field';
+import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
-import { MatInputModule } from '@angular/material/input';
+import { MatInput, MatInputModule } from '@angular/material/input';
 import { MatSelect, MatSelectModule } from '@angular/material/select';
 import { IMaskModule } from 'angular-imask';
+import {
+  BehaviorSubject,
+  distinctUntilChanged,
+  Observable,
+  of,
+  Subscription,
+  take,
+} from 'rxjs';
+import { ComboType } from './models/combo-type';
+import {
+  COMBO_DATA_PROVIDER,
+  IComboDataProvider,
+} from './services/combo-http.service';
 
 @Component({
   standalone: true,
@@ -55,8 +67,14 @@ import { IMaskModule } from 'angular-imask';
     IMaskModule,
   ],
 })
-export class ComboComponent implements ControlValueAccessor, OnInit, OnChanges {
+export class ComboComponent
+  implements ControlValueAccessor, OnChanges, AfterViewInit, DoCheck, OnDestroy
+{
   @ViewChild(MatSelect) matSelect!: MatSelect;
+
+  /** Sólo existe cuando el combo está en readonly */
+  @ViewChild('readonlyInput', { read: MatInput }) readonlyInput?: MatInput;
+
   @Input({ required: true }) label!: string;
   @Input() type = '';
   @Input() isLocal = false;
@@ -67,26 +85,37 @@ export class ComboComponent implements ControlValueAccessor, OnInit, OnChanges {
   data$!: Observable<ComboType[]>;
 
   value: string | number | null = null;
-  disabled = this.readonly;
+  disabled = false;
 
   loaded = false;
   private loading = false;
 
+  /**
+   * Ni el mat-select ni el input tienen su propio formControl, así que Material
+   * nunca los marca en error por las suyas. Con este matcher le decimos cuándo
+   * están en error mirando el control del CVA.
+   */
+  readonly errorStateMatcher: ErrorStateMatcher = {
+    isErrorState: () => this.showError,
+  };
+
   private onChange = (_: any) => {};
   private onTouched = () => {};
 
+  private subscriptions = new Subscription();
+
+  private readonly touchedSubject = new BehaviorSubject<boolean>(false);
+
+  readonly touched$ = this.touchedSubject.asObservable().pipe(distinctUntilChanged());
+
   constructor(
-    @Inject(COMBO_DATA_PROVIDER)private dataProvider: IComboDataProvider,
-    private zone: NgZone,
+    @Inject(COMBO_DATA_PROVIDER) private dataProvider: IComboDataProvider,
+    private changeDetectorRef: ChangeDetectorRef,
     @Self() @Optional() public ngControl: NgControl,
   ) {
     if (this.ngControl) {
       this.ngControl.valueAccessor = this;
     }
-  }
-
-  ngOnInit(): void {
-    // this.control..
   }
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -101,6 +130,40 @@ export class ComboComponent implements ControlValueAccessor, OnInit, OnChanges {
     }
   }
 
+  ngAfterViewInit(): void {
+    const control = this.ngControl?.control;
+    if (control) {
+      this.subscriptions.add(
+        control.statusChanges.subscribe(() => this.refreshErrorState()),
+      );
+      this.subscriptions.add(
+        this.touched$.subscribe(() => {
+          this.refreshErrorState();
+        }),
+      );
+      this.refreshErrorState();
+    }
+
+    this.changeDetectorRef.detectChanges();
+  }
+
+  ngDoCheck(): void {
+    const touched = !!this.ngControl?.control?.touched;
+
+    if (touched !== this.touchedSubject.value) {
+      this.touchedSubject.next(touched);
+    }
+  }
+
+  ngOnDestroy(): void {
+    this.subscriptions.unsubscribe();
+  }
+
+  private refreshErrorState(): void {
+    this.matSelect?.updateErrorState();
+    this.readonlyInput?.updateErrorState();
+  }
+
   private loadData() {
     this.data$ = this.isLocal
       ? of(this.data)
@@ -108,10 +171,10 @@ export class ComboComponent implements ControlValueAccessor, OnInit, OnChanges {
   }
 
   writeValue(value: any): void {
-    this.value = value;
+    this.value = value ?? null;
 
     // 🔥 si viene valor y todavía no cargaste datos, cargalos
-    if (value != null && !this.loaded && !this.loading) {
+    if (this.value != null && !this.loaded && !this.loading) {
       this.loading = true;
 
       const obs = this.isLocal
@@ -151,8 +214,8 @@ export class ComboComponent implements ControlValueAccessor, OnInit, OnChanges {
   }
 
   onSelectionChange(value: any): void {
-    this.value = value;
-    this.onChange(value);
+    this.value = value ?? null;
+    this.onChange(this.value);
     this.onTouched();
   }
 
@@ -170,17 +233,21 @@ export class ComboComponent implements ControlValueAccessor, OnInit, OnChanges {
       this.loaded = true;
       this.loading = false;
 
-      // 🔥 esperar a que Angular termine de renderizar
-      this.zone.onStable.pipe(take(1)).subscribe(() => {
-        if (!this.matSelect.panelOpen) {
-          this.matSelect.open();
-        }
-      });
+      // MatSelect no abre si la lista de opciones está vacía, así que primero
+      // renderizamos las mat-option y recién ahí lo abrimos.
+      // (No sirve esperar a zone.onStable: la app es zoneless y nunca emite.)
+      this.changeDetectorRef.detectChanges();
+
+      // en readonly no hay mat-select
+      if (!this.matSelect?.panelOpen) {
+        this.matSelect?.open();
+      }
     });
   }
 
   clear(): void {
     this.onSelectionChange(null);
+    this.matSelect?.writeValue(null);
   }
 
   trackByNumero = (_: number, item: ComboType) => item.numero;
@@ -196,12 +263,17 @@ export class ComboComponent implements ControlValueAccessor, OnInit, OnChanges {
     return found?.descripcion ?? '';
   }
 
-  get control() {
-    return this.ngControl?.control as FormControl;
+  get hasValue(): boolean {
+    return this.value !== null && this.value !== '';
+  }
+
+  get control(): FormControl | null {
+    return (this.ngControl?.control as FormControl) ?? null;
   }
 
   get showError(): boolean {
-    return !!this.control && this.control.invalid && this.control.touched;
+    const control = this.control;
+    return !!control && control.invalid && (control.touched || control.dirty);
   }
 
   get errorMessage(): string | null {
@@ -209,13 +281,8 @@ export class ComboComponent implements ControlValueAccessor, OnInit, OnChanges {
     if (!errors) return null;
 
     if (errors['required']) return `${this.label} es obligatorio`;
-    if (errors['email']) return `Formato inválido`;
-    if (errors['maxlength'])
-      return `Máximo ${errors['maxlength'].requiredLength} caracteres`;
-    if (errors['minlength'])
-      return `Mínimo ${errors['minlength'].requiredLength} caracteres`;
-    if (errors['max']) return `Máximo ${errors['max'].requiredLength}`;
-    if (errors['min']) return `Mínimo ${errors['min'].requiredLength}`;
+    if (errors['max']) return `Máximo ${errors['max'].max}`;
+    if (errors['min']) return `Mínimo ${errors['min'].min}`;
 
     return 'Valor inválido';
   }

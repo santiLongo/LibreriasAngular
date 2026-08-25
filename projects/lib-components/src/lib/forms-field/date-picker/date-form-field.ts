@@ -1,9 +1,12 @@
 import { CommonModule } from '@angular/common';
 import {
+  AfterViewInit,
+  ChangeDetectorRef,
   Component,
-  ElementRef,
+  DoCheck,
   forwardRef,
   Input,
+  OnDestroy,
   Optional,
   Self,
   ViewChild,
@@ -16,16 +19,17 @@ import {
   NgControl,
   ReactiveFormsModule,
 } from '@angular/forms';
-import { MatNativeDateModule } from '@angular/material/core';
+import { ErrorStateMatcher, MatNativeDateModule } from '@angular/material/core';
 import {
   MatDatepickerInput,
   MatDatepickerModule,
 } from '@angular/material/datepicker';
-import { MatError, MatFormFieldModule } from '@angular/material/form-field';
+import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
-import { MatInputModule } from '@angular/material/input';
+import { MatInput, MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { IMaskModule } from 'angular-imask';
+import { BehaviorSubject, distinctUntilChanged, Subscription } from 'rxjs';
 
 @Component({
   standalone: true,
@@ -48,34 +52,87 @@ import { IMaskModule } from 'angular-imask';
     MatIconModule,
     MatNativeDateModule,
     MatDatepickerModule,
-    IMaskModule
+    IMaskModule,
   ],
 })
-export class DateFormFieldComponent implements ControlValueAccessor {
-  @ViewChild(MatDatepickerInput) datepickerInput!: MatDatepickerInput<Date>;
+export class DateFormFieldComponent
+  implements ControlValueAccessor, AfterViewInit, DoCheck, OnDestroy
+{
+  @ViewChild(MatDatepickerInput, { static: true })
+  datepickerInput!: MatDatepickerInput<Date>;
+
+  @ViewChild(MatInput, { static: true })
+  matInput!: MatInput;
 
   @Input({ required: true }) label!: string;
   @Input() readonly = false;
 
   value: Date | null = null;
-  disabled = this.readonly;
+  disabled = false;
 
-  onChange = (_: Date | null) => {};
-  onTouched = () => {};
+  /**
+   * El input no tiene su propio formControl, así que Material nunca lo marca
+   * en error por las suyas. Con este matcher le decimos cuándo está en error
+   * mirando el control del CVA.
+   */
+  readonly errorStateMatcher: ErrorStateMatcher = {
+    isErrorState: () => this.showError,
+  };
 
-  constructor(@Self() @Optional() public ngControl: NgControl) {
+  private onChange: (value: Date | null) => void = () => {};
+  private onTouched = () => {};
+
+  private subscriptions = new Subscription();
+
+  private readonly touchedSubject = new BehaviorSubject<boolean>(false);
+
+  readonly touched$ = this.touchedSubject.asObservable().pipe(distinctUntilChanged());
+
+  constructor(
+    @Self() @Optional() public ngControl: NgControl,
+    private changeDetectorRef: ChangeDetectorRef,
+  ) {
     if (this.ngControl) {
       this.ngControl.valueAccessor = this;
     }
   }
 
-  writeValue(value: Date | null): void {
-    this.value = value;
+  ngAfterViewInit(): void {
+    // Si el valor llegó por writeValue antes de que existiera el datepicker,
+    // recién acá lo podemos mostrar.
+    this.pintarValor(this.value);
 
-    // sincroniza el input real del datepicker
-    if (this.datepickerInput) {
-      this.datepickerInput.value = value;
+    const control = this.ngControl?.control;
+    if (control) {
+      this.subscriptions.add(
+        control.statusChanges.subscribe(() => this.matInput?.updateErrorState()),
+      );
+      this.subscriptions.add(
+        this.touched$.subscribe(() => {
+          this.matInput?.updateErrorState();
+        }),
+      );
+      this.matInput?.updateErrorState();
     }
+
+    this.changeDetectorRef.detectChanges();
+  }
+
+  ngDoCheck(): void {
+    const touched = !!this.ngControl?.control?.touched;
+
+    if (touched !== this.touchedSubject.value) {
+      this.touchedSubject.next(touched);
+    }
+  }
+
+  ngOnDestroy(): void {
+    this.subscriptions.unsubscribe();
+  }
+
+  writeValue(value: Date | null): void {
+    this.value = value ?? null;
+    this.pintarValor(this.value);
   }
 
   registerOnChange(fn: any): void {
@@ -93,21 +150,38 @@ export class DateFormFieldComponent implements ControlValueAccessor {
   onDateChange(date: Date | null): void {
     this.value = date;
     this.onChange(date);
+    this.onTouched();
+  }
+
+  onBlur(): void {
+    this.onTouched();
   }
 
   clear(): void {
     this.value = null;
-    this.datepickerInput.value = null;
+    this.pintarValor(null);
     this.onChange(null);
     this.onTouched();
   }
 
-  get control() {
-    return this.ngControl?.control as FormControl;
+  /** El texto del input lo escribe el propio MatDatepickerInput al setearle el value. */
+  private pintarValor(value: Date | null): void {
+    if (!this.datepickerInput) return;
+
+    this.datepickerInput.value = value;
+  }
+
+  get hasValue(): boolean {
+    return this.value !== null;
+  }
+
+  get control(): FormControl | null {
+    return (this.ngControl?.control as FormControl) ?? null;
   }
 
   get showError(): boolean {
-    return !!this.control && this.control.invalid && this.control.touched;
+    const control = this.control;
+    return !!control && control.invalid && (control.touched || control.dirty);
   }
 
   get errorMessage(): string | null {
@@ -115,16 +189,11 @@ export class DateFormFieldComponent implements ControlValueAccessor {
     if (!errors) return null;
 
     if (errors['required']) return `${this.label} es obligatorio`;
-    if (errors['email']) return `Formato inválido`;
-    if (errors['maxlength'])
-      return `Máximo ${errors['maxlength'].requiredLength} caracteres`;
-    if (errors['minlength'])
-      return `Mínimo ${errors['minlength'].requiredLength} caracteres`;
-    if (errors['max'])
-      return `Máximo ${errors['max'].requiredLength}`;
-    if (errors['min'])
-      return `Mínimo ${errors['min'].requiredLength}`;
-
+    if (errors['matDatepickerParse']) return `Fecha inválida`;
+    if (errors['matDatepickerMin']) return `La fecha es muy antigua`;
+    if (errors['matDatepickerMax']) return `La fecha es muy futura`;
+    if (errors['max']) return `Máximo ${errors['max'].max}`;
+    if (errors['min']) return `Mínimo ${errors['min'].min}`;
 
     return 'Valor inválido';
   }

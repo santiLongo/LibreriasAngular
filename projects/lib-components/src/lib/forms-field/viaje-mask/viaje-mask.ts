@@ -1,10 +1,13 @@
 import { CommonModule } from '@angular/common';
 import {
   AfterViewInit,
+  ChangeDetectorRef,
   Component,
+  DoCheck,
   ElementRef,
   forwardRef,
   Input,
+  OnDestroy,
   Optional,
   Self,
   ViewChild,
@@ -17,14 +20,15 @@ import {
   NgControl,
   ReactiveFormsModule,
 } from '@angular/forms';
-import { MatNativeDateModule } from '@angular/material/core';
+import { ErrorStateMatcher, MatNativeDateModule } from '@angular/material/core';
 import { MatDatepickerModule } from '@angular/material/datepicker';
-import { MatError, MatFormFieldModule } from '@angular/material/form-field';
+import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
-import { MatInputModule } from '@angular/material/input';
+import { MatInput, MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
-import { IMaskModule } from 'angular-imask';
-import IMask, { InputMask } from 'imask';
+import { IMaskDirective, IMaskModule } from 'angular-imask';
+import IMask from 'imask';
+import { BehaviorSubject, distinctUntilChanged, Subscription } from 'rxjs';
 
 @Component({
   standalone: true,
@@ -47,88 +51,160 @@ import IMask, { InputMask } from 'imask';
     MatIconModule,
     MatNativeDateModule,
     MatDatepickerModule,
-    IMaskModule
+    IMaskModule,
   ],
 })
-export class ViajeMaskComponent implements ControlValueAccessor, AfterViewInit {
-  @Input({ required: true }) label!: string;
-  @Input() readonly = false;
-
+export class ViajeMaskComponent
+  implements ControlValueAccessor, AfterViewInit, DoCheck, OnDestroy
+{
   @ViewChild('input', { static: true })
   inputRef!: ElementRef<HTMLInputElement>;
+
+  @ViewChild(IMaskDirective, { static: true })
+  imask!: IMaskDirective<any>;
+
+  @ViewChild(MatInput, { static: true })
+  matInput!: MatInput;
+
+  @Input({ required: true }) label!: string;
+  @Input() readonly = false;
 
   value: string | null = null;
   disabled = false;
 
-  private maskRef!: InputMask<any>;
+  /** V- fijo y hasta 8 dígitos. Con lazy: false el prefijo se ve siempre. */
+  readonly maskOptions: any = {
+    mask: 'V-{NNNNNNNN}',
+    lazy: false,
+    overwrite: true,
+    blocks: {
+      NNNNNNNN: {
+        mask: IMask.MaskedNumber,
+        scale: 0,
+        min: 0,
+        max: 99999999,
+      },
+    },
+  };
+
+  /**
+   * El input no tiene su propio formControl, así que Material nunca lo marca
+   * en error por las suyas. Con este matcher le decimos cuándo está en error
+   * mirando el control del CVA.
+   */
+  readonly errorStateMatcher: ErrorStateMatcher = {
+    isErrorState: () => this.showError,
+  };
 
   private onChange = (_: any) => {};
   private onTouched = () => {};
 
-  constructor(@Self() @Optional() public ngControl: NgControl) {
+  private subscriptions = new Subscription();
+
+  private readonly touchedSubject = new BehaviorSubject<boolean>(false);
+
+  readonly touched$ = this.touchedSubject.asObservable().pipe(distinctUntilChanged());
+
+  constructor(
+    @Self() @Optional() public ngControl: NgControl,
+    private changeDetectorRef: ChangeDetectorRef,
+  ) {
     if (this.ngControl) {
       this.ngControl.valueAccessor = this;
     }
   }
 
   ngAfterViewInit(): void {
-    queueMicrotask(() => {
-      this.maskRef = IMask(this.inputRef.nativeElement, {
-        mask: 'V-{NNNNNNNN}',
-        lazy: false,
-        overwrite: true,
-        blocks: {
-          NNNNNNNN: {
-            mask: IMask.MaskedNumber,
-            scale: 0,
-            min: 0,
-            max: 99999999,
-          },
-        },
-      });
+    // Si el valor llegó por writeValue antes de que existiera la máscara,
+    // recién acá lo podemos mostrar formateado.
+    this.updateMaskValue(this.value);
 
-      this.maskRef.on('accept', () => {
-        const val = this.maskRef.value || null;
-        this.value = val;
-        this.onChange(val);
-      });
+    const control = this.ngControl?.control;
+    if (control) {
+      this.subscriptions.add(
+        control.statusChanges.subscribe(() => this.matInput?.updateErrorState()),
+      );
+      this.subscriptions.add(
+        this.touched$.subscribe(() => {
+          this.matInput?.updateErrorState();
+        }),
+      );
+      this.matInput?.updateErrorState();
+    }
 
-      this.maskRef.on('blur', () => this.onTouched());
-    });
+    this.changeDetectorRef.detectChanges();
+  }
+
+  ngDoCheck(): void {
+    const touched = !!this.ngControl?.control?.touched;
+
+    if (touched !== this.touchedSubject.value) {
+      this.touchedSubject.next(touched);
+    }
+  }
+
+  ngOnDestroy(): void {
+    this.subscriptions.unsubscribe();
   }
 
   writeValue(value: string | null): void {
-    this.value = value;
-    if (this.maskRef) this.maskRef.value = value ?? '';
+    this.value = this.normalizar(value);
+    this.updateMaskValue(this.value);
   }
 
-  registerOnChange(fn: any) {
+  registerOnChange(fn: any): void {
     this.onChange = fn;
   }
 
-  registerOnTouched(fn: any) {
+  registerOnTouched(fn: any): void {
     this.onTouched = fn;
   }
 
-  setDisabledState(isDisabled: boolean) {
+  setDisabledState(isDisabled: boolean): void {
     this.disabled = isDisabled;
-    if (this.maskRef) this.maskRef.updateOptions({ lazy: isDisabled });
   }
 
-  clear() {
+  /** El evento trae el valor con máscara: "V-00012345" */
+  onAccept(masked: string | null): void {
+    this.value = this.normalizar(masked);
+    this.onChange(this.value);
+  }
+
+  onBlur(): void {
+    this.onTouched();
+  }
+
+  clear(): void {
     this.value = null;
-    this.maskRef.value = '';
+    this.updateMaskValue(null);
     this.onChange(null);
     this.onTouched();
-    queueMicrotask(() => this.inputRef.nativeElement.focus());
+    queueMicrotask(() => this.inputRef?.nativeElement.focus());
   }
 
-  get control() {
-    return this.ngControl?.control as FormControl;
+  private updateMaskValue(value: string | null): void {
+    this.imask?.writeValue(value ?? '');
+  }
+
+  /** Con lazy: false el input nunca está vacío ("V-"), así que sin dígitos es null. */
+  private normalizar(value: string | null | undefined): string | null {
+    if (!value) return null;
+
+    const digits = value.replace(/\D/g, '');
+    return digits ? value : null;
+  }
+
+  get hasValue(): boolean {
+    return this.value !== null;
+  }
+
+  get control(): FormControl | null {
+    return (this.ngControl?.control as FormControl) ?? null;
   }
 
   get showError(): boolean {
-    return !!this.control && this.control.invalid && this.control.touched;
+    const control = this.control;
+    return !!control && control.invalid && (control.touched || control.dirty);
   }
 
   get errorMessage(): string | null {
@@ -136,16 +212,12 @@ export class ViajeMaskComponent implements ControlValueAccessor, AfterViewInit {
     if (!errors) return null;
 
     if (errors['required']) return `${this.label} es obligatorio`;
-    if (errors['email']) return `Formato inválido`;
     if (errors['maxlength'])
       return `Máximo ${errors['maxlength'].requiredLength} caracteres`;
     if (errors['minlength'])
       return `Mínimo ${errors['minlength'].requiredLength} caracteres`;
-    if (errors['max'])
-      return `Máximo ${errors['max'].requiredLength}`;
-    if (errors['min'])
-      return `Mínimo ${errors['min'].requiredLength}`;
-
+    if (errors['max']) return `Máximo ${errors['max'].max}`;
+    if (errors['min']) return `Mínimo ${errors['min'].min}`;
 
     return 'Valor inválido';
   }
