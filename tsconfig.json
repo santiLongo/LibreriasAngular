@@ -41,12 +41,6 @@
       "path": "./projects/lib-components/tsconfig.spec.json"
     },
     {
-      "path": "./projects/lib-generales/tsconfig.lib.json"
-    },
-    {
-      "path": "./projects/lib-generales/tsconfig.spec.json"
-    },
-    {
       "path": "./projects/lib-servicios/tsconfig.lib.json"
     },
     {

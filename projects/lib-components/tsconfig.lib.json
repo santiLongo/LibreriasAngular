@@ -4,10 +4,22 @@
   "extends": "../../tsconfig.json",
   "compilerOptions": {
     "outDir": "../../out-tsc/lib",
+    /*
+     * El path del tsconfig raíz apunta al fuente de lib-servicios, que es lo que
+     * necesita el dev server de la app. Para empaquetar hay que ir al build:
+     * si no, los .ts de las dos librerías entran al mismo programa, el
+     * directorio común sube a projects/ y ng-packagr no puede emitir.
+     *
+     * Ojo: si tocás lib-servicios, primero `ng build lib-servicios`.
+     */
+    "paths": {
+      "lib-servicios": ["../../dist/lib-servicios"]
+    },
+    "rootDir": "src",
     "declaration": true,
     "declarationMap": true,
     "types": []
   },
-  "include": ["src/**/*.ts", "../lib-servicios/src/lib/services/dialog.service.ts"],
+  "include": ["src/**/*.ts"],
   "exclude": ["**/*.spec.ts"]
 }
