@@ -25,6 +25,13 @@ export class GridColumns<T> {
   /** true si al menos una columna pide total */
   readonly hasSummary: boolean;
 
+  /**
+   * Ancho vigente de cada hoja: el de la config o el que dejó el usuario al
+   * arrastrar. Va por clave y no en la columna para no pisar lo que configuró
+   * quien usa la grilla.
+   */
+  private readonly anchos = new Map<string, string>();
+
   constructor(columns: GridColumn<T>[] = []) {
     const visibles = columns.map((column) => normalizar(column)).filter(esVisible);
     const hayGrupos = visibles.some(esGrupo);
@@ -51,11 +58,44 @@ export class GridColumns<T> {
 
     this.headerRows = hayGrupos ? [filaGrupos, filaHijas] : [filaGrupos];
     this.hasSummary = this.leafColumns.some((column) => !!column.summarize);
+
+    for (const hoja of this.leafColumns) {
+      const ancho = normalizarAncho(hoja.width);
+      if (ancho) this.anchos.set(String(hoja.key), ancho);
+    }
   }
 
   /** Cuántas filas ocupa el header: 1, o 2 si hay grupos. Es el rowspan de las columnas de sistema. */
   get headerDepth(): number {
     return this.headerRows.length;
+  }
+
+  /** true si alguna columna tiene ancho, sea de la config o de un arrastre */
+  get hasWidths(): boolean {
+    return this.anchos.size > 0;
+  }
+
+  /** Guarda el ancho que dejó el usuario al soltar el borde del header */
+  setWidth(column: GridColumn<T>, px: number): void {
+    this.anchos.set(String(column.key), `${Math.round(px)}px`);
+  }
+
+  widthOf(column: GridColumn<T>): string | null {
+    return this.anchos.get(String(column.key)) ?? null;
+  }
+
+  /**
+   * Anchos para el <colgroup> de la tabla, en el orden en que se dibujan las
+   * celdas: primero las columnas de sistema y después las hojas.
+   *
+   * Va por acá y no por el nzWidth de cada <th> porque ng-zorro sólo mira los
+   * th de la primera fila del header: con grupos, las hijas nunca llegarían.
+   */
+  widthConfig(anchosDeSistema: (string | null)[] = []): (string | null)[] {
+    return [
+      ...anchosDeSistema,
+      ...this.leafColumns.map((column) => this.widthOf(column)),
+    ];
   }
 
   /**
@@ -116,6 +156,13 @@ function calcular<T>(summarize: GridSummary<T>, key: keyof T, rows: T[]): number
 
 function sumar(acumulado: number, valor: number): number {
   return acumulado + valor;
+}
+
+/** Un número es px; un string ya viene con unidad */
+function normalizarAncho(width?: number | string): string | null {
+  if (width == null) return null;
+
+  return typeof width === 'number' ? `${width}px` : width;
 }
 
 function esSuma<T>(summarize: GridSummary<T>): boolean {

@@ -15,6 +15,13 @@ export interface GridConfig<T> {
    * filas abiertas se cierran al cambiar de página.
    */
   rowKey?: (row: T) => string;
+
+  /**
+   * Deja ajustar el ancho de las columnas arrastrando el borde del header.
+   * Prende el layout fijo de la tabla; conviene darle width a las columnas
+   * para que el reparto inicial sea el que vos querés.
+   */
+  resizableColumns?: boolean;
 }
 
 export type GridColumnType = 'text' | 'numeric' | 'date' | 'template' | 'group';
@@ -60,6 +67,12 @@ export class GridColumn<T> {
 
   /** Muestra el total de la columna en el pie de la grilla */
   summarize?: GridSummary<T>;
+
+  /** Ancho de la columna: un número se toma como px, o cualquier medida CSS ('20%', '12rem') */
+  width?: number | string;
+
+  /** Poné false para clavar el ancho de esta columna cuando la grilla es resizableColumns */
+  resizable?: boolean;
 }
 
 export interface ExpandableSettings<T> {

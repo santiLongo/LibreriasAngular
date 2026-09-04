@@ -18,6 +18,7 @@ import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzMenuModule } from 'ng-zorro-antd/menu';
 import { NzPaginationModule } from 'ng-zorro-antd/pagination';
+import { NzResizableModule, NzResizeEvent } from 'ng-zorro-antd/resizable';
 import { MatIconModule } from '@angular/material/icon';
 import { ButtonComponent } from '../button/button';
 import { MatMenuModule } from '@angular/material/menu';
@@ -28,6 +29,20 @@ import { CommonModule, NgTemplateOutlet } from '@angular/common';
 import { FormFieldComponent } from '../forms-field';
 import { ICONS } from '../types/icons';
 import { HttpRef } from 'lib-servicios';
+
+/**
+ * Anchos de las columnas que agrega la grilla. Con layout fijo el ancho sale
+ * del <colgroup>, así que el CSS de estas columnas no alcanza.
+ */
+const ANCHOS_SISTEMA = {
+  expand: '48px',
+  seleccion: '48px',
+  edicion: '150px',
+  acciones: '64px',
+};
+
+/** Lo mínimo que puede quedar una columna al arrastrarla */
+const ANCHO_MINIMO = 60;
 
 @Component({
   standalone: true,
@@ -42,6 +57,7 @@ import { HttpRef } from 'lib-servicios';
     NzButtonModule,
     NzMenuModule,
     NzPaginationModule,
+    NzResizableModule,
     MatIconModule,
     ButtonComponent,
     MatMenuModule,
@@ -81,9 +97,16 @@ export class GridComponent<T extends Record<string, any>>
   toolbarButtons: GridToolBarAction<T>[] = [];
 
   ICONS = ICONS;
+  ANCHO_MINIMO = ANCHO_MINIMO;
   activeFilterColumn?: string;
   searchValue = new FormControl('');
   filterVisible: Record<string, boolean> = {};
+
+  /**
+   * Anchos del <colgroup>. Es un campo y no un getter porque nzWidthConfig es
+   * un @Input: un array nuevo en cada ciclo dispararía una remedición sin fin.
+   */
+  widthConfig: (string | null)[] = [];
 
   private editableService?: EditableGridService<T>;
   private totalesServicio: Record<string, number> | null = null;
@@ -106,6 +129,8 @@ export class GridComponent<T extends Record<string, any>>
     if (!this.ref) {
       this.ref = this.dataService.ref;
     }
+
+    this.actualizarWidthConfig();
 
     this.dataService.data$
       .pipe(takeUntil(this.destroy$))
@@ -185,6 +210,52 @@ export class GridComponent<T extends Record<string, any>>
     if (this.menuActions.length > 0) cantidad++;
 
     return cantidad;
+  }
+
+  // Anchos
+
+  get resizable(): boolean {
+    return !!this.config.resizableColumns;
+  }
+
+  /** Una columna se puede arrastrar si la grilla lo permite y la columna no lo bloqueó */
+  puedeResize(column: GridColumn<T>): boolean {
+    return this.resizable && column.resizable !== false;
+  }
+
+  /**
+   * Con anchos fijos la tabla tiene que ir en layout fijo: si no, el navegador
+   * reparte a su criterio y el arrastre no se nota.
+   */
+  get tableLayout(): 'auto' | 'fixed' {
+    return this.resizable || this.columns.hasWidths ? 'fixed' : 'auto';
+  }
+
+  onResize(column: GridColumn<T>, { width }: NzResizeEvent) {
+    if (!width) return;
+
+    this.columns.setWidth(column, width);
+    this.actualizarWidthConfig();
+  }
+
+  private actualizarWidthConfig() {
+    // Vacío deja que la tabla se siga midiendo sola, como antes de los anchos
+    this.widthConfig =
+      this.resizable || this.columns.hasWidths
+        ? this.columns.widthConfig(this.anchosDeSistema())
+        : [];
+  }
+
+  /** En el mismo orden en que el template dibuja las columnas de sistema */
+  private anchosDeSistema(): (string | null)[] {
+    const anchos: (string | null)[] = [];
+
+    if (this.expand.activo) anchos.push(ANCHOS_SISTEMA.expand);
+    if (this.selection.activa) anchos.push(ANCHOS_SISTEMA.seleccion);
+    if (this.edit) anchos.push(ANCHOS_SISTEMA.edicion);
+    if (this.menuActions.length > 0) anchos.push(ANCHOS_SISTEMA.acciones);
+
+    return anchos;
   }
 
   // Selección
