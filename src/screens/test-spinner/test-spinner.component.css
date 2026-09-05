@@ -1,0 +1,17 @@
+.ayuda {
+  font-size: 13px;
+  color: rgba(0, 0, 0, 0.6);
+  margin: 0 0 16px;
+}
+
+.campo {
+  max-width: 320px;
+  margin-bottom: 12px;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}

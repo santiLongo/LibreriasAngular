@@ -1,0 +1,106 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.spinner-box {
+  background: white;
+  padding: 24px 32px;
+  border-radius: 8px;
+  text-align: center;
+  min-width: 180px;
+}
+
+.spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid #ccc;
+  border-top: 3px solid #333;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin: 0 auto 12px;
+}
+
+.spinner-text {
+  margin: 0;
+  font-size: 14px;
+  color: rgba(0, 0, 0, 0.75);
+}
+
+/* ── Los tres puntitos ──────────────────────────────────── */
+
+/*
+  inline-flex para que queden pegados al texto y alineados con la base de la
+  línea, sin depender del espacio entre nodos del HTML.
+*/
+.dots {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 3px;
+  margin-left: 4px;
+  height: 1em;
+}
+
+.dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: currentColor;
+  margin-bottom: 0.2em;
+  animation: dot-bounce 1.4s ease-in-out infinite both;
+}
+
+/* Cada uno arranca un toque más tarde: de ahí la ola */
+.dot:nth-child(2) {
+  animation-delay: 0.16s;
+}
+
+.dot:nth-child(3) {
+  animation-delay: 0.32s;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes dot-bounce {
+  0%,
+  80%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.3;
+  }
+  40% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation-duration: 2.4s;
+  }
+
+  /* Sin rebote: sólo se encienden y se apagan */
+  .dot {
+    animation-name: dot-fade;
+  }
+
+  @keyframes dot-fade {
+    0%,
+    80%,
+    100% {
+      opacity: 0.3;
+    }
+    40% {
+      opacity: 1;
+    }
+  }
+}

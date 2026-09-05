@@ -22,6 +22,29 @@ export interface GridConfig<T> {
    * para que el reparto inicial sea el que vos querés.
    */
   resizableColumns?: boolean;
+
+  /**
+   * Scroll interno de la grilla. Si no se pasa, la tabla crece con las filas y
+   * no scrollea.
+   */
+  scroll?: GridScrollSettings;
+}
+
+/**
+ * Con esto la tabla se parte en header, cuerpo y pie: scrollea sólo el cuerpo y
+ * el header queda fijo arriba.
+ */
+export interface GridScrollSettings {
+  /**
+   * Alto máximo del cuerpo, y lo único que hay para configurar. Un número se
+   * toma como px, o cualquier medida CSS ('50vh', '30rem').
+   *
+   * El horizontal va solo: la tabla ocupa como mínimo el ancho del contenedor
+   * y la barra aparece únicamente si las columnas no entran.
+   *
+   * Si la grilla tiene totales, la fila de totales queda fija abajo.
+   */
+  y?: number | string;
 }
 
 export type GridColumnType = 'text' | 'numeric' | 'date' | 'template' | 'group';

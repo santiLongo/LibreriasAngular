@@ -22,6 +22,7 @@ import {
   GridComponent,
   GridConfig,
   GridMenuAction,
+  GridScrollSettings,
   GridToolBarAction,
   NumberFormFieldComponent,
 } from 'lib-components';
@@ -54,6 +55,7 @@ interface Opciones {
   agrupar: boolean;
   expandible: boolean;
   totales: boolean;
+  scroll: boolean;
 }
 
 @Component({
@@ -127,9 +129,10 @@ export class TestGridComponent implements OnInit {
     ocultarDestino: false,
     hiddenRefresh: false,
     demora: false,
-    agrupar: true,
-    expandible: true,
-    totales: true,
+    agrupar: false,
+    expandible: false,
+    totales: false,
+    scroll: true,
   };
 
   ngOnInit(): void {
@@ -242,7 +245,13 @@ export class TestGridComponent implements OnInit {
           ? (row: Viaje) => row.estado === 'FINALIZADO'
           : undefined,
       },
+      scroll: this.buildScroll(),
     };
+  }
+
+  /** Sin el toggle no va scroll y la grilla queda como antes */
+  private buildScroll(): GridScrollSettings | undefined {
+    return this.opciones.scroll ? { y: 300 } : undefined;
   }
 
   private buildColumns(): GridColumn<Viaje>[] {

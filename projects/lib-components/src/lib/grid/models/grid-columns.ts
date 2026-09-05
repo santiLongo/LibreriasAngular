@@ -60,7 +60,7 @@ export class GridColumns<T> {
     this.hasSummary = this.leafColumns.some((column) => !!column.summarize);
 
     for (const hoja of this.leafColumns) {
-      const ancho = normalizarAncho(hoja.width);
+      const ancho = medidaCss(hoja.width);
       if (ancho) this.anchos.set(String(hoja.key), ancho);
     }
   }
@@ -159,10 +159,10 @@ function sumar(acumulado: number, valor: number): number {
 }
 
 /** Un número es px; un string ya viene con unidad */
-function normalizarAncho(width?: number | string): string | null {
-  if (width == null) return null;
+export function medidaCss(valor?: number | string | null): string | null {
+  if (valor == null) return null;
 
-  return typeof width === 'number' ? `${width}px` : width;
+  return typeof valor === 'number' ? `${valor}px` : valor;
 }
 
 function esSuma<T>(summarize: GridSummary<T>): boolean {

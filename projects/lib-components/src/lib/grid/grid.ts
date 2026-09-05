@@ -6,7 +6,7 @@ import {
   GridMenuAction,
   GridToolBarAction,
 } from './models/model';
-import { GridColumns } from './models/grid-columns';
+import { GridColumns, medidaCss } from './models/grid-columns';
 import { GridSelection } from './models/grid-selection';
 import { GridExpand } from './models/grid-expand';
 import { GridEditState } from './models/grid-edit-state';
@@ -108,6 +108,13 @@ export class GridComponent<T extends Record<string, any>>
    */
   widthConfig: (string | null)[] = [];
 
+  /**
+   * Alto / ancho del área que scrollea. Campo y no getter por lo mismo que
+   * widthConfig: nzScroll es un @Input y un objeto nuevo en cada ciclo haría
+   * que la tabla se remida sin parar.
+   */
+  scroll: { x: 'auto'; y: string | null } = { x: 'auto', y: null };
+
   private editableService?: EditableGridService<T>;
   private totalesServicio: Record<string, number> | null = null;
   private totales: Record<string, number> = {};
@@ -129,6 +136,15 @@ export class GridComponent<T extends Record<string, any>>
     if (!this.ref) {
       this.ref = this.dataService.ref;
     }
+
+    /*
+      El horizontal no se configura: va siempre en 'auto', que le deja a la
+      tabla el ancho del contenedor como mínimo y saca la barra sólo si las
+      columnas no entran. Y va sólo si hay alto: sin `y` no hay nada que
+      scrollear y la grilla tiene que renderizar como siempre.
+    */
+    const alto = medidaCss(this.config.scroll?.y);
+    this.scroll = alto ? { x: 'auto', y: alto } : { x: 'auto', y: null };
 
     this.actualizarWidthConfig();
 
@@ -231,6 +247,22 @@ export class GridComponent<T extends Record<string, any>>
     return this.resizable || this.columns.hasWidths ? 'fixed' : 'auto';
   }
 
+  // Scroll
+
+  get scrollActivo(): boolean {
+    return !!(this.scroll.x || this.scroll.y);
+  }
+
+  /**
+   * Clava la fila de totales abajo, afuera del scroll.
+   *
+   * No es opcional: cuando la tabla scrollea, ng-zorro dibuja el tfoot
+   * únicamente si está fijado. Sin esto los totales desaparecerían.
+   */
+  get summaryFixed(): 'bottom' | null {
+    return this.scroll.y ? 'bottom' : null;
+  }
+
   onResize(column: GridColumn<T>, { width }: NzResizeEvent) {
     if (!width) return;
 
@@ -239,9 +271,17 @@ export class GridComponent<T extends Record<string, any>>
   }
 
   private actualizarWidthConfig() {
-    // Vacío deja que la tabla se siga midiendo sola, como antes de los anchos
+    /*
+      Con scroll va siempre, aunque ninguna columna tenga ancho: ng-zorro usa lo
+      que mide solo únicamente si la cantidad de anchos coincide con la del
+      colgroup, y si no coincide deja todas las columnas iguales. Mandando la
+      lista completa (con null donde no hay ancho) los largos dan y cada columna
+      queda con lo suyo.
+
+      Vacío deja que la tabla se siga midiendo sola, como antes de los anchos.
+    */
     this.widthConfig =
-      this.resizable || this.columns.hasWidths
+      this.resizable || this.columns.hasWidths || this.scrollActivo
         ? this.columns.widthConfig(this.anchosDeSistema())
         : [];
   }

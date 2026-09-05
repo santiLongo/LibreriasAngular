@@ -16,5 +16,9 @@ export const routes: Routes = [
     {
         path: 'test-grid',
         loadComponent: () => import('../screens/test-grid/test-grid.component').then(m => m.TestGridComponent)
+    },
+    {
+        path: 'test-spinner',
+        loadComponent: () => import('../screens/test-spinner/test-spinner.component').then(m => m.TestSpinnerComponent)
     }
 ];

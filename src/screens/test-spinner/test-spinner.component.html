@@ -1,0 +1,22 @@
+<app-core-view title="Test Overlay Spinner">
+  <div body>
+    <p class="ayuda">
+      <code>app-overlay-spinner</code> no se prende solo: lo muestra y lo esconde
+      quien lo usa, con un <code>&#64;if</code>. El único input es el
+      <code>text</code>.
+    </p>
+
+    <div class="campo">
+      <app-form-field label="Texto" [(ngModel)]="texto" />
+    </div>
+
+    <div class="toolbar">
+      <app-button label="Mostrar 3 segundos" (onClick)="mostrar(3)" />
+      <app-button label="Mostrar 10 segundos" type="secondary" (onClick)="mostrar(10)" />
+    </div>
+  </div>
+</app-core-view>
+
+@if (visible) {
+  <app-overlay-spinner [text]="texto" />
+}

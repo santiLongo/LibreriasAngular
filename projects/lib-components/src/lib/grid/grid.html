@@ -61,7 +61,8 @@
   [nzTitle]="toolbarTemplate"
   [nzBordered]="true"
   [nzOuterBordered]="true"
-  style="width: 100%; overflow-y: auto; margin-bottom: 20px"
+  [nzScroll]="scroll"
+  class="grid-table"
 >
   <thead>
     @for (headerRow of columns.headerRows; track $index) {
@@ -72,40 +73,40 @@
         -->
         @if ($first) {
           @if (expand.activo) {
-            <th class="grid-col-expand" [attr.rowspan]="columns.headerDepth"></th>
+            <th class="grid-col-expand" [rowspan]="columns.headerDepth"></th>
           }
 
           @if (selection.activa) {
             @if (selection.esMultiple) {
               <th
                 nzShowCheckbox
-                [attr.rowspan]="columns.headerDepth"
+                [rowspan]="columns.headerDepth"
                 [nzChecked]="selection.checked"
                 [nzIndeterminate]="selection.indeterminate"
                 (nzCheckedChange)="onAllChecked($event)"
               ></th>
             } @else {
-              <th [attr.rowspan]="columns.headerDepth"></th>
+              <th [rowspan]="columns.headerDepth"></th>
             }
           }
 
           @if (edit) {
-            <th class="grid-col-edit" [attr.rowspan]="columns.headerDepth">Edición</th>
+            <th class="grid-col-edit" [rowspan]="columns.headerDepth">Edición</th>
           }
 
           @if (menuActions.length > 0) {
-            <th class="grid-col-actions" [attr.rowspan]="columns.headerDepth">Acciones</th>
+            <th class="grid-col-actions" [rowspan]="columns.headerDepth">Acciones</th>
           }
         }
 
         @for (cell of headerRow; track $index) {
           @if (cell.isGroup) {
-            <th class="grid-th-group" [attr.colspan]="cell.colspan">
+            <th class="grid-th-group" [colspan]="cell.colspan">
               {{ cell.column.title }}
             </th>
           } @else {
             <th
-              [attr.rowspan]="cell.rowspan"
+              [rowspan]="cell.rowspan"
               [nzShowSort]="cell.column.sortable"
               [nzSortFn]="cell.column.sortable ? true : null"
               [nzSortOrder]="getSortOrder(cell.column.key)"
@@ -235,7 +236,7 @@
 
   <!-- TOTALES -->
   @if (columns.hasSummary) {
-    <tfoot nzSummary>
+    <tfoot nzSummary [nzFixed]="summaryFixed">
       <tr>
         @if (systemColumns > 0) {
           <td class="grid-total-label" [attr.colspan]="systemColumns">Totales</td>

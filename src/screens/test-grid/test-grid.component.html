@@ -68,6 +68,14 @@
         [type]="opciones.demora ? 'success' : 'light'"
         (onClick)="toggle('demora')"
       ></app-button>
+
+      <span class="sep"></span>
+
+      <app-button
+        [label]="'Scroll vertical (300px): ' + (opciones.scroll ? 'ON' : 'OFF')"
+        [type]="opciones.scroll ? 'success' : 'light'"
+        (onClick)="toggle('scroll')"
+      ></app-button>
     </div>
 
     <div class="toolbar">
