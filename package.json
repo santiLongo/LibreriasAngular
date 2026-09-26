@@ -3,6 +3,8 @@
   "version": "0.0.0",
   "scripts": {
     "ng": "ng",
+    "build:service": "ng build lib-servicios && cd ./dist/lib-servicios && npm pack && cd ../../",
+    "build:components": "ng build lib-components && cd ./dist/lib-components && npm pack && cd ../../",
     "start": "ng serve",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",

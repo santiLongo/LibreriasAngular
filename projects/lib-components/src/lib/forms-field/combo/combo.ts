@@ -31,7 +31,15 @@ import { ErrorStateMatcher } from '@angular/material/core';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInput, MatInputModule } from '@angular/material/input';
-import { BehaviorSubject, distinctUntilChanged, Observable, of, Subscription, take } from 'rxjs';
+import {
+  BehaviorSubject,
+  distinctUntilChanged,
+  finalize,
+  Observable,
+  of,
+  Subscription,
+  take,
+} from 'rxjs';
 import { ComboType } from './models/combo-type';
 import {
   COMBO_DATA_PROVIDER,
@@ -192,7 +200,17 @@ export class ComboComponent
     this.disabled = isDisabled;
   }
 
-  /** Click en cualquier parte del campo */
+  /**
+   * Click sobre el input: sirve para reabrir el panel cuando el input ya tenía
+   * el foco (por ejemplo después de cerrarlo con Escape).
+   *
+   * Va en el input y NO en el mat-form-field: desde Material 21 el panel del
+   * autocomplete se inserta como popover al lado del campo, o sea adentro del
+   * <mat-form-field>, así que el click en una opción burbujea hasta el
+   * form-field. Escuchando ahí, elegir una opción cerraba el panel y el mismo
+   * click lo volvía a abrir. Clickear el resto del campo igual abre el panel:
+   * el form-field le pasa el foco al input y salta onFocus().
+   */
   handleClick(): void {
     if (this.readonly || this.disabled) return;
 
@@ -227,8 +245,10 @@ export class ComboComponent
   onBlur(): void {
     this.onTouched();
 
+    // el filtro no se toca acá: el blur llega con el mousedown sobre la opción
+    // y reordenar la lista en ese momento hace que el click caiga en otra.
+    // onFocus() ya muestra la lista completa al volver a entrar.
     this.texto = this.descripcionDe(this.value);
-    this.filtrados = this.items;
     this.changeDetectorRef.markForCheck();
   }
 
@@ -257,7 +277,16 @@ export class ComboComponent
       ? of(this.data)
       : this.dataProvider.getDataCombo(this.type, this.extraParams);
 
-    obs.pipe(take(1)).subscribe((items) => {
+    // finalize y no sólo el next: si la petición falla, el interceptor corta la
+    // cadena sin emitir y sin esto el combo quedaba con loading en true para
+    // siempre, sin poder reintentar.
+    obs.pipe(
+      take(1),
+      finalize(() => {
+        this.loading = false;
+        this.changeDetectorRef.markForCheck();
+      }),
+    ).subscribe((items) => {
       this.items = items ?? [];
       this.filtrados = this.items;
       this.loaded = true;

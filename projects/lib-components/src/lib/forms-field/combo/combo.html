@@ -1,4 +1,4 @@
-<mat-form-field appearance="fill" style="width: 100%" (click)="handleClick()">
+<mat-form-field appearance="fill" style="width: 100%">
   <mat-label>{{ label }}</mat-label>
 
   @if (!readonly) {
@@ -12,6 +12,7 @@
       [errorStateMatcher]="errorStateMatcher"
       [matAutocomplete]="auto"
       (focus)="onFocus()"
+      (click)="handleClick()"
       (input)="onInput($any($event.target).value)"
       (blur)="onBlur()"
     />
